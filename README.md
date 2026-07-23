@@ -1,0 +1,228 @@
+# Docs PR Hashtag Helper
+
+A lightweight browser extension (Microsoft Edge / Google Chrome) that adds an
+autocomplete dropdown for **Microsoft Learn pull-request hashtag comments** on
+GitHub. When you type `#` in a PR comment box, the supported commands appear in a
+filterable menu so you can pick the right one without memorizing them.
+
+Works on any `github.com` repository, including `MicrosoftDocs/fabric-docs-pr`,
+`MicrosoftDocs/powerbi-docs-pr`, and other Microsoft Docs repos.
+
+## Problem statement
+
+Microsoft Docs repos use **comment automation**: contributors type special
+hashtag comments in a GitHub PR to trigger label changes and state transitions
+(sign off, hold, close, reopen). The commands are documented at
+[Process a pull request — Sign-off and comment automation](https://learn.microsoft.com/contribute/content/process-pull-request#sign-off-and-comment-automation),
+but:
+
+- They're easy to forget or misspell (`#sign-off` vs `#signoff`).
+- You have to leave the PR to look them up.
+- A wrong command doesn't trigger the intended automation, which slows down
+  merges.
+
+There's no native GitHub autocomplete for these commands (GitHub only
+autocompletes `@mentions`, `#issues`, and `:emoji:`).
+
+## Supported commands
+
+Sourced from the Microsoft Learn contributor guidance on GitHub comment
+automation.
+
+| Command | What it does | Repo availability |
+| --- | --- | --- |
+| `#sign-off` | Adds the **ready-to-merge** label so reviewers know the PR is ready for review/merge. In private repos, any contributor can sign off (usually the author or article owner). In public repos, only listed authors of files in the PR can sign off. | Public and private |
+| `#hold-off` | Removes the **ready-to-merge** label. In a private repo, assigns the **do-not-merge** label. | Public and private |
+| `#please-close` | Closes the PR or issue. | Public and private |
+| `#please-open` | Reopens a closed PR or issue. | Public and private |
+| `#label:"custom label text"` | Adds a custom label up to 200 characters (shorter recommended). | Public and private |
+| `#remove-label:"custom label text"` | Removes a custom label. | Public and private |
+| `#assign:<GitHub account>` | Adds a GitHub account to **Assignees**. The account must be a valid contributor in the repo. | Public and private |
+| `#reassign:<GitHub account>` | Removes all current assignees, then adds a GitHub account to **Assignees**. | Public and private |
+| `#assign-reviewer:<GitHub account>` | Adds a GitHub account to **Reviewers**. The account must be a valid contributor in the repo. | Public and private |
+| `#unassign-reviewer:<GitHub account>` | Removes a GitHub account from **Reviewers**. | Public and private |
+
+Commands that take an argument (labels and accounts) are inserted with the caret
+placed where you type the value — for example `#label:"|"` or `#assign:|`.
+
+> Source: <https://learn.microsoft.com/contribute/content/process-pull-request#sign-off-and-comment-automation>
+
+## Solution approach
+
+A **Manifest V3 content script** that:
+
+1. Detects GitHub comment text areas on PR pages (new comment box, review
+   comments, and edit boxes).
+2. Watches what you type. When the token under the caret starts with `#`, it
+   shows a positioned dropdown filtered against the supported commands.
+3. Lets you navigate with the keyboard (Up/Down to move, Enter/Tab to insert,
+   Esc to dismiss) or click to select.
+4. Inserts the chosen command in place of the partial token.
+
+Design choices:
+
+- **No build step, no dependencies.** Plain JavaScript and CSS so it's easy to
+  audit and load unpacked.
+- **Least privilege.** Only requests `github.com` host access plus `storage` for
+  settings; no network calls, no storage of PR content.
+- **Data-driven.** The command list lives in `src/commands.js`, so updating it
+  when the docs change is a one-file edit.
+
+## Scalable for any contributor and any repo
+
+The helper is built to be shared across the whole Microsoft Docs contributor
+community, not hardwired to one repo:
+
+- **Universal by default.** It runs on every `github.com` repository, so it works
+  on `fabric-docs-pr`, `powerbi-docs-pr`, `azure-docs-pr`, `dotnet/docs`, and any
+  other repo that uses the same comment automation.
+- **Configurable scope.** An options page (`storage`-backed and roaming via
+  `chrome.storage.sync`) lets each person choose:
+  - **All GitHub repositories** (default), or
+  - **Only specific orgs or repos** — an allowlist such as `MicrosoftDocs` or
+    `MicrosoftDocs/fabric-docs-pr`, one entry per line.
+- **SPA-safe gating.** GitHub navigates between repos without full reloads, so
+  the active-repo check runs on each keystroke and always reflects the current
+  page.
+- **One place to maintain commands.** When the official command set changes,
+  edit `src/commands.js` only — the menu, options page, and README-style command
+  list all read from it.
+
+Open the options page from `edge://extensions` → the extension → **Details** →
+**Extension options** (or right-click the toolbar icon → **Options**).
+
+## Project structure
+
+```text
+docs-pr-hashtag-helper/
+├── manifest.json        # MV3 extension manifest
+├── src/
+│   ├── commands.js      # Command definitions (single source of truth)
+│   ├── config.js        # Settings + per-repo activation logic
+│   ├── content.js       # Autocomplete logic injected into GitHub
+│   └── content.css      # Dropdown styling
+├── options/
+│   ├── options.html     # Settings page (scope configuration)
+│   ├── options.js
+│   └── options.css
+├── icons/               # Generated PNG icons (16/32/48/128)
+├── tools/
+│   ├── generate_icons.py  # Regenerates the icon set
+│   └── package.py         # Builds the store-ready ZIP into dist/
+├── PRIVACY.md           # Privacy policy (required by stores)
+├── README.md
+└── .gitignore
+```
+
+## Install and try it (anyone)
+
+No build step, no account, no store listing needed. It takes about two minutes.
+
+### Step 1 — Get the files
+
+Pick either option:
+
+- **Download a ZIP:** On the GitHub page for this project, select
+  **Code** > **Download ZIP**, then unzip it somewhere you'll remember (for
+  example your Desktop). You should end up with a `docs-pr-hashtag-helper`
+  folder that contains `manifest.json`.
+- **Or clone it:**
+
+  ```bash
+  git clone <repository-url> docs-pr-hashtag-helper
+  ```
+
+> Make sure the folder you keep is the one that has `manifest.json` directly
+> inside it (not a folder that contains another folder).
+
+### Step 2 — Load it in your browser
+
+**Microsoft Edge**
+
+1. Go to `edge://extensions`.
+2. Turn on **Developer mode** (toggle on the left).
+3. Select **Load unpacked**.
+4. Choose the `docs-pr-hashtag-helper` folder.
+
+**Google Chrome**
+
+1. Go to `chrome://extensions`.
+2. Turn on **Developer mode** (top-right toggle).
+3. Select **Load unpacked**.
+4. Choose the `docs-pr-hashtag-helper` folder.
+
+The **Docs PR Hashtag Helper** card appears. If it shows a red **Errors**
+button, open it and share the message.
+
+### Step 3 — Try it
+
+1. Open any GitHub pull request or issue.
+2. Click into a comment box (the **Write** tab, not **Preview**).
+3. Type `#`. A dropdown of the supported commands appears.
+4. Filter by typing (for example `#sign`), move with the Up/Down arrow keys, and
+   press **Enter** or **Tab** to insert. Press **Esc** to dismiss.
+
+> Tip: Don't submit test comments on a real docs PR — commands like `#sign-off`
+> and `#please-close` trigger live automation. Just confirm the text inserts,
+> then clear the box. To test end to end, use a throwaway PR in your own repo.
+
+### Step 4 (optional) — Choose where it runs
+
+1. On the extensions page, select **Details** on the card, then **Extension
+   options**.
+2. Choose **All GitHub repositories** (default) or **Only specific orgs or
+   repositories** and list entries like `MicrosoftDocs` or
+   `MicrosoftDocs/fabric-docs-pr`.
+3. Select **Save**.
+
+### Keeping it updated
+
+After you pull or download a newer version of the files, go back to the
+extensions page and select the **reload** icon on the card.
+
+### Uninstalling
+
+On the extensions page, select **Remove** on the card.
+
+## Build assets (maintainers)
+
+The runtime code needs no build step. Two helper scripts prepare store assets
+(they require Python with Pillow: `pip install pillow`):
+
+```bash
+# Regenerate icons/icon-{16,32,48,128}.png
+python tools/generate_icons.py
+
+# Build dist/docs-pr-hashtag-helper-<version>.zip for store upload
+python tools/package.py
+```
+
+## Publishing to a store
+
+Once testing passes, publish so anyone can install with one click and get
+automatic updates (no Developer mode needed).
+
+1. **Bump the version** in `manifest.json` if needed.
+2. **Build the package:** `python tools/package.py` — produces the ZIP in
+   `dist/`.
+3. **Submit to a store:**
+   - **Microsoft Edge Add-ons** (free registration) —
+     <https://partner.microsoft.com/dashboard/microsoftedge>
+   - **Chrome Web Store** (one-time $5 fee; the result also installs in Edge) —
+     <https://chrome.google.com/webstore/devconsole>
+4. Provide the listing details: description (from this README), at least one
+   screenshot, the `128` icon, and a privacy policy link (`PRIVACY.md`). Declare
+   **no data collected**.
+5. Submit for review. After approval, share the store link.
+
+> The audience here is Microsoft Docs contributors. If you plan to brand this as
+> an official docs tool or publish under Microsoft's name, confirm internal
+> review/branding requirements with your team first. You can also publish an
+> **unlisted** listing (install by direct link only) or deploy via **Edge for
+> Business** policy for org-wide distribution.
+
+## Roadmap
+
+- [ ] Screenshots and a polished store listing.
+- [ ] Support GitHub's newer rich-text comment editor if/when it replaces the
+      markdown text area.

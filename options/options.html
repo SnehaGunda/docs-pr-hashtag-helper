@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Docs PR Hashtag Helper — Options</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <h1>Docs PR Hashtag Helper</h1>
+      <p class="lede">
+        Choose where the hashtag autocomplete runs. The commands appear whenever
+        you type <code>#</code> in a GitHub pull request or issue comment box.
+      </p>
+
+      <form id="settings-form">
+        <fieldset>
+          <legend>Where to run</legend>
+
+          <label class="option">
+            <input type="radio" name="mode" value="all" />
+            <span>
+              <strong>All GitHub repositories</strong>
+              <small>Works everywhere on github.com. Recommended.</small>
+            </span>
+          </label>
+
+          <label class="option">
+            <input type="radio" name="mode" value="allowlist" />
+            <span>
+              <strong>Only specific orgs or repositories</strong>
+              <small
+                >Restrict to the entries below. Use an organization
+                (<code>MicrosoftDocs</code>) or a full repo
+                (<code>MicrosoftDocs/fabric-docs-pr</code>), one per line.</small
+              >
+            </span>
+          </label>
+
+          <textarea
+            id="allowlist"
+            rows="6"
+            spellcheck="false"
+            placeholder="MicrosoftDocs&#10;MicrosoftDocs/fabric-docs-pr"
+          ></textarea>
+        </fieldset>
+
+        <div class="actions">
+          <button type="submit" id="save">Save</button>
+          <span id="status" role="status" aria-live="polite"></span>
+        </div>
+      </form>
+
+      <section class="commands">
+        <h2>Supported commands</h2>
+        <ul id="command-list"></ul>
+      </section>
+    </main>
+
+    <script src="../src/commands.js"></script>
+    <script src="../src/config.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>

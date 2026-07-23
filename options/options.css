@@ -1,0 +1,137 @@
+:root {
+  color-scheme: light dark;
+  --fg: #1f2328;
+  --fg-muted: #656d76;
+  --bg: #ffffff;
+  --border: #d0d7de;
+  --accent: #0969da;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: #e6edf3;
+    --fg-muted: #8b949e;
+    --bg: #0d1117;
+    --border: #30363d;
+    --accent: #4493f8;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans",
+    Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.wrap {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 32px 20px 48px;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0 0 4px;
+}
+
+.lede {
+  color: var(--fg-muted);
+  margin: 0 0 24px;
+}
+
+fieldset {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 0 0 16px;
+}
+
+legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.option {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 0;
+  cursor: pointer;
+}
+
+.option input {
+  margin-top: 3px;
+}
+
+.option small {
+  display: block;
+  color: var(--fg-muted);
+}
+
+textarea {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono",
+    monospace;
+  font-size: 13px;
+  resize: vertical;
+}
+
+textarea:disabled {
+  opacity: 0.5;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+button {
+  padding: 6px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#status {
+  color: var(--fg-muted);
+}
+
+.commands {
+  margin-top: 32px;
+}
+
+.commands h2 {
+  font-size: 16px;
+}
+
+.commands ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.commands li {
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono",
+    monospace;
+  color: var(--accent);
+}
