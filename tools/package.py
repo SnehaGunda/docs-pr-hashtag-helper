@@ -1,8 +1,7 @@
 """Package the extension into a store-ready ZIP.
 
-Produces dist/docs-pr-hashtag-helper-<version>.zip containing only the files
-needed at runtime (no dev tooling, no git, no dist output). The version is read
-from manifest.json.
+Produces browser-specific ZIP files containing only the files needed at runtime
+(no dev tooling, no git, no dist output). The version is read from manifest.json.
 
 Run:
     python tools/package.py
@@ -17,7 +16,6 @@ DIST_DIR = os.path.join(ROOT, "dist")
 
 # Files and folders included in the published package.
 INCLUDE = [
-    "manifest.json",
     "README.md",
     "PRIVACY.md",
     "src",
@@ -43,13 +41,20 @@ def main():
         version = json.load(f)["version"]
 
     os.makedirs(DIST_DIR, exist_ok=True)
-    out = os.path.join(DIST_DIR, f"docs-pr-hashtag-helper-{version}.zip")
+    packages = {
+        "chromium": "manifest.json",
+        "firefox": "manifest.firefox.json",
+    }
 
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
-        for full, arc in iter_files():
-            zf.write(full, arc.replace(os.sep, "/"))
-
-    print(f"wrote {out}")
+    for browser, manifest_name in packages.items():
+        out = os.path.join(
+            DIST_DIR, f"docs-pr-hashtag-helper-{version}-{browser}.zip"
+        )
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.write(os.path.join(ROOT, manifest_name), "manifest.json")
+            for full, arc in iter_files():
+                zf.write(full, arc.replace(os.sep, "/"))
+        print(f"wrote {out}")
 
 
 if __name__ == "__main__":

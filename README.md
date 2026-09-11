@@ -1,6 +1,7 @@
 # Docs PR Hashtag Helper
 
-A lightweight browser extension (Microsoft Edge / Google Chrome) that adds an
+A lightweight browser extension for Microsoft Edge, Google Chrome, and Mozilla
+Firefox that adds an
 autocomplete dropdown for **Microsoft Learn pull-request hashtag comments** on
 GitHub. When you type `#` in a PR comment box, the supported commands appear in a
 filterable menu so you can pick the right one without memorizing them.
@@ -58,6 +59,11 @@ A **Manifest V3 content script** that:
 3. Lets you navigate with the keyboard (Up/Down to move, Enter/Tab to insert,
    Esc to dismiss) or click to select.
 4. Inserts the chosen command in place of the partial token.
+5. Shows a green **sign-off to merge** shortcut beside GitHub's **Merging is
+  blocked** message on pull requests. The shortcut adds `#sign-off` to the
+  comment editor for review without submitting it. It is disabled after the
+  command is posted and the PR has the `ready-to-merge` label, then re-enabled
+  if that label is removed.
 
 Design choices:
 
@@ -137,19 +143,37 @@ Pick either option:
 
 ### Step 2 — Load it in your browser
 
-**Microsoft Edge**
+#### Microsoft Edge
 
 1. Go to `edge://extensions`.
 2. Turn on **Developer mode** (toggle on the left).
 3. Select **Load unpacked**.
 4. Choose the `docs-pr-hashtag-helper` folder.
 
-**Google Chrome**
+#### Google Chrome
 
 1. Go to `chrome://extensions`.
 2. Turn on **Developer mode** (top-right toggle).
 3. Select **Load unpacked**.
 4. Choose the `docs-pr-hashtag-helper` folder.
+
+#### Mozilla Firefox
+
+Firefox requires the Firefox manifest to be named `manifest.json`. Build the
+browser packages first:
+
+```bash
+python tools/package.py
+```
+
+Then:
+
+1. Go to `about:debugging#/runtime/this-firefox`.
+2. Select **Load Temporary Add-on**.
+3. Choose `dist/docs-pr-hashtag-helper-0.1.0-firefox.zip`.
+
+Temporary add-ons are removed when Firefox closes. Publish and sign the Firefox
+package through Mozilla Add-ons for permanent installation.
 
 The **Docs PR Hashtag Helper** card appears. If it shows a red **Errors**
 button, open it and share the message.
@@ -193,7 +217,7 @@ The runtime code needs no build step. Two helper scripts prepare store assets
 # Regenerate icons/icon-{16,32,48,128}.png
 python tools/generate_icons.py
 
-# Build dist/docs-pr-hashtag-helper-<version>.zip for store upload
+# Build separate Chromium and Firefox ZIPs in dist/
 python tools/package.py
 ```
 
@@ -203,17 +227,18 @@ Once testing passes, publish so anyone can install with one click and get
 automatic updates (no Developer mode needed).
 
 1. **Bump the version** in `manifest.json` if needed.
-2. **Build the package:** `python tools/package.py` — produces the ZIP in
-   `dist/`.
-3. **Submit to a store:**
-   - **Microsoft Edge Add-ons** (free registration) —
-     <https://partner.microsoft.com/dashboard/microsoftedge>
-   - **Chrome Web Store** (one-time $5 fee; the result also installs in Edge) —
-     <https://chrome.google.com/webstore/devconsole>
-4. Provide the listing details: description (from this README), at least one
+2. **Build the packages:** `python tools/package.py` produces Chromium and
+  Firefox ZIP files in `dist/`.
+3. Submit the Chromium package to **Microsoft Edge Add-ons** at
+  <https://partner.microsoft.com/dashboard/microsoftedge>.
+4. Submit the Chromium package to the **Chrome Web Store** at
+  <https://chrome.google.com/webstore/devconsole> (one-time $5 fee).
+5. Submit the Firefox package to **Firefox Browser Add-ons** at
+  <https://addons.mozilla.org/developers/>.
+6. Provide the listing details: description (from this README), at least one
    screenshot, the `128` icon, and a privacy policy link (`PRIVACY.md`). Declare
    **no data collected**.
-5. Submit for review. After approval, share the store link.
+7. Submit for review. After approval, share the store link.
 
 > The audience here is Microsoft Docs contributors. If you plan to brand this as
 > an official docs tool or publish under Microsoft's name, confirm internal

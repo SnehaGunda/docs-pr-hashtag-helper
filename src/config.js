@@ -5,7 +5,7 @@
  *   - mode "all":       active on every GitHub repository (default).
  *   - mode "allowlist": active only on the listed orgs or "org/repo" entries.
  *
- * Settings persist in chrome.storage.sync so they roam with the signed-in
+ * Settings persist in storage.sync so they roam with the signed-in
  * browser profile. Everything degrades gracefully if storage is unavailable.
  */
 (function () {
@@ -16,9 +16,12 @@
     allowlist: ["MicrosoftDocs"]
   };
 
-  const api =
-    (typeof chrome !== "undefined" && chrome.storage && chrome.storage.sync) ||
+  const extensionApi =
+    (typeof browser !== "undefined" && browser) ||
+    (typeof chrome !== "undefined" && chrome) ||
     null;
+  const storage = extensionApi && extensionApi.storage;
+  const api = (storage && storage.sync) || null;
 
   const DocsPRHelperConfig = {
     DEFAULT_SETTINGS,
@@ -78,8 +81,8 @@
 
     /** Subscribes to live settings changes; calls back with new settings. */
     onChange(callback) {
-      if (!api || !chrome.storage.onChanged) return;
-      chrome.storage.onChanged.addListener((changes, area) => {
+      if (!api || !storage.onChanged) return;
+      storage.onChanged.addListener((changes, area) => {
         if (area === "sync" && changes.settings) {
           callback({ ...DEFAULT_SETTINGS, ...changes.settings.newValue });
         }
