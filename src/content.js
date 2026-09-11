@@ -217,9 +217,20 @@
       window.HTMLTextAreaElement.prototype,
       "value"
     ).set;
+    field.focus();
     setter.call(field, value);
     field.setSelectionRange(caret, caret);
-    field.dispatchEvent(new Event("input", { bubbles: true }));
+    const inputEvent =
+      typeof InputEvent === "function"
+        ? new InputEvent("input", {
+            bubbles: true,
+            composed: true,
+            inputType: "insertText",
+            data: null
+          })
+        : new Event("input", { bubbles: true, composed: true });
+    field.dispatchEvent(inputEvent);
+    field.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
   function isPullRequestPage() {
