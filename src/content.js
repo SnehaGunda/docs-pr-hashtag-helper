@@ -17,6 +17,7 @@
   let matches = [];
   let activeIndex = 0;
   let menu = null;
+  let signOffSyncQueued = false;
 
   // Current settings, refreshed live. Gating is evaluated per keystroke so it
   // stays correct as GitHub navigates between repos without a full reload.
@@ -24,9 +25,11 @@
   if (CONFIG) {
     CONFIG.get().then((s) => {
       settings = s;
+      queueSignOffSync();
     });
     CONFIG.onChange((s) => {
       settings = s;
+      queueSignOffSync();
     });
   }
 
@@ -115,12 +118,6 @@
       item.appendChild(title);
       item.appendChild(desc);
 
-      if (cmd.availability) {
-        const badge = document.createElement("span");
-        badge.className = "docs-pr-hh-badge";
-        badge.textContent = cmd.availability;
-        item.appendChild(badge);
-      }
       item.addEventListener("mousedown", (e) => {
         e.preventDefault();
         insertCommand(i);
@@ -130,14 +127,26 @@
     el.hidden = false;
   }
 
-  /** Positions the menu just below the caret inside the text area. */
+  /**
+   * Positions the menu relative to the caret. By default it opens ABOVE the
+   * caret so it doesn't cover GitHub's own "#" issue/PR suggester, which opens
+   * just below the caret — that way both lists stay fully visible. If there
+   * isn't enough room above (near the top of the page), it falls back to below.
+   */
   function positionMenu(field, tokenStart) {
     const el = getMenu();
     const coords = caretCoordinates(field, tokenStart);
     const rect = field.getBoundingClientRect();
-    const top =
-      window.scrollY + rect.top + coords.top - field.scrollTop + coords.height;
+    const caretTop = window.scrollY + rect.top + coords.top - field.scrollTop;
+    const caretBottom = caretTop + coords.height;
     const left = window.scrollX + rect.left + coords.left - field.scrollLeft;
+
+    const GAP = 6;
+    const menuHeight = el.offsetHeight;
+    let top = caretTop - menuHeight - GAP;
+    if (top < window.scrollY + 8) {
+      top = caretBottom + GAP;
+    }
     el.style.top = `${Math.round(top)}px`;
     el.style.left = `${Math.round(left)}px`;
   }
@@ -213,11 +222,155 @@
     field.dispatchEvent(new Event("input", { bubbles: true }));
   }
 
+  function isPullRequestPage() {
+    return /^\/[^/]+\/[^/]+\/pull\/\d+(?:\/|$)/.test(
+      window.location.pathname
+    );
+  }
+
+  function findCommentField() {
+    const fields = Array.from(document.querySelectorAll("textarea")).filter(
+      isCommentField
+    );
+    return (
+      fields.find(
+        (field) => field.id === "new_comment_field" && field.offsetParent
+      ) || fields.find((field) => field.offsetParent)
+    );
+  }
+
+  function announceSignOffStatus(button, message) {
+    const status = button.parentElement.querySelector(
+      ".docs-pr-hh-sign-off-status"
+    );
+    if (!status) return;
+    status.textContent = message;
+    window.setTimeout(() => (status.textContent = ""), 2500);
+  }
+
+  function containsSignOff(value) {
+    return /(^|\s)#sign-off(?:\s|$)/i.test(value || "");
+  }
+
+  function hasPostedSignOff() {
+    const commentBodies = document.querySelectorAll(
+      ".timeline-comment .js-comment-body, " +
+        ".timeline-comment .comment-body, " +
+        ".timeline-comment .markdown-body, " +
+        "[data-testid='comment-body']"
+    );
+    return Array.from(commentBodies).some((body) =>
+      containsSignOff(body.textContent)
+    );
+  }
+
+  function hasReadyToMergeLabel() {
+    const labels = document.querySelectorAll(
+      ".IssueLabel, [data-testid='issue-label'], a[href*='/labels/']"
+    );
+    return Array.from(labels).some(
+      (label) => label.textContent.trim().toLowerCase() === "ready-to-merge"
+    );
+  }
+
+  function updateSignOffButtonState(button) {
+    const posted = hasPostedSignOff();
+    const readyToMerge = hasReadyToMergeLabel();
+    button.disabled = posted && readyToMerge;
+
+    if (button.disabled) {
+      button.title = "This PR is already labeled ready-to-merge";
+    } else {
+      button.title = "Add #sign-off to the PR comment editor";
+    }
+    button.setAttribute("aria-label", button.title);
+  }
+
+  function addSignOffToComment(button) {
+    const field = findCommentField();
+    if (!field) {
+      announceSignOffStatus(button, "Open the Write tab first.");
+      return;
+    }
+
+    const command = COMMANDS.find((item) => item.trigger === "#sign-off");
+    const insertText = command ? command.insert.trimEnd() : "#sign-off";
+    if (containsSignOff(field.value)) {
+      field.focus();
+      field.scrollIntoView({ behavior: "smooth", block: "center" });
+      announceSignOffStatus(button, "#sign-off is already in the comment.");
+      return;
+    }
+
+    const before = field.value;
+    const separator = before && !before.endsWith("\n") ? "\n" : "";
+    const value = before + separator + insertText;
+    const caret = before.length + separator.length + insertText.length;
+
+    setFieldValue(field, value, caret);
+    field.focus();
+    field.scrollIntoView({ behavior: "smooth", block: "center" });
+    announceSignOffStatus(button, "Added #sign-off to the comment.");
+    updateSignOffButtonState(button);
+  }
+
+  function findBlockedMergeHeading() {
+    return Array.from(
+      document.querySelectorAll("h1, h2, h3, h4, [role='heading']")
+    ).find((heading) => heading.textContent.trim() === "Merging is blocked");
+  }
+
+  function syncSignOffButton() {
+    signOffSyncQueued = false;
+    const existing = document.querySelector(".docs-pr-hh-sign-off");
+    if (!isPullRequestPage() || !isActiveRepo()) {
+      if (existing) existing.remove();
+      return;
+    }
+    if (existing) {
+      updateSignOffButtonState(existing);
+      return;
+    }
+
+    const heading = findBlockedMergeHeading();
+    if (!heading) return;
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "docs-pr-hh-sign-off";
+    button.textContent = "sign-off to merge";
+    button.title = "Add #sign-off to the PR comment editor";
+    button.setAttribute("aria-label", "Add #sign-off to the PR comment editor");
+    button.addEventListener("click", () => addSignOffToComment(button));
+
+    const row = document.createElement("div");
+    row.className = "docs-pr-hh-sign-off-row";
+    heading.parentNode.insertBefore(row, heading);
+    row.appendChild(heading);
+    row.appendChild(button);
+
+    const status = document.createElement("span");
+    status.className = "docs-pr-hh-sign-off-status";
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    row.appendChild(status);
+    updateSignOffButtonState(button);
+  }
+
+  function queueSignOffSync() {
+    if (signOffSyncQueued) return;
+    signOffSyncQueued = true;
+    window.requestAnimationFrame(syncSignOffButton);
+  }
+
   // --- Event wiring (delegated at the document level) ---
 
   document.addEventListener("input", (e) => {
     const target = e.target;
-    if (isCommentField(target)) updateFor(target);
+    if (isCommentField(target)) {
+      updateFor(target);
+      queueSignOffSync();
+    }
   });
 
   document.addEventListener(
@@ -256,7 +409,36 @@
   document.addEventListener("focusout", (e) => {
     if (e.target === activeField) hideMenu();
   });
-  window.addEventListener("scroll", () => hideMenu(), true);
+  // Keep the menu aligned to the caret while the page (or text area) scrolls,
+  // instead of closing it. Scroll events from inside the menu are ignored so
+  // its own list stays scrollable. If the caret is no longer on a command
+  // token, close the menu.
+  window.addEventListener(
+    "scroll",
+    (e) => {
+      const target = e.target;
+      if (
+        menu &&
+        target instanceof Node &&
+        (target === menu || menu.contains(target))
+      ) {
+        return;
+      }
+      if (!activeField || getMenu().hidden) return;
+      const token = currentToken(activeField);
+      if (!token) {
+        hideMenu();
+        return;
+      }
+      positionMenu(activeField, token.start);
+    },
+    true
+  );
+
+  const pageObserver = new MutationObserver(queueSignOffSync);
+  pageObserver.observe(document.body, { childList: true, subtree: true });
+  document.addEventListener("turbo:load", queueSignOffSync);
+  queueSignOffSync();
 
   /**
    * Computes the pixel coordinates of a caret position within a text area by
