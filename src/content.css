@@ -77,6 +77,14 @@
   vertical-align: middle;
 }
 
+.docs-pr-hh-sign-off-row.is-next-to-comment {
+  display: inline-flex;
+  align-self: center;
+  flex: 0 0 auto;
+  margin-right: 8px;
+  padding: 0;
+}
+
 .docs-pr-hh-sign-off-row .docs-pr-hh-sign-off {
   display: inline-flex;
   align-items: center;
@@ -430,6 +438,11 @@
 @media (max-width: 543px) {
   .docs-pr-hh-sign-off-row .docs-pr-hh-sign-off {
     width: max-content;
+  }
+
+  .docs-pr-hh-sign-off-row.is-next-to-comment {
+    align-self: flex-end;
+    margin-right: 0;
   }
 }
 

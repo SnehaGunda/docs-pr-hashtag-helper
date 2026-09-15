@@ -71,9 +71,10 @@ A **Manifest V3 content script** that:
   the timeline. When no workflow comment or pending action exists, passed
   checks display **sign-off to merge**. The button never bypasses GitHub
   permissions or PRMerger authorization.
-6. Shows **reopen pull request** when a pull request is closed without being
-   merged. Selecting it posts `#please-open` through GitHub's normal comment
-   workflow. Merged pull requests never show the reopen control.
+6. Shows **reopen pull request** immediately before GitHub's **Comment** button
+  when a pull request is closed without being merged. Selecting it posts
+  `#please-open` through GitHub's normal comment workflow. Merged pull requests
+  never show the reopen control.
 7. Adds **Assign** controls beside **Assignees** and **Reviewers**. Entering a
   GitHub username posts the corresponding `#assign` or `#assign-reviewer`
   PRMerger comment. Compact remove buttons beside people post `#unassign` or

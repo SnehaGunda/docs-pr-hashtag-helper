@@ -1298,12 +1298,16 @@
     button.setAttribute("aria-label", button.title);
   }
 
-  function findCommentSubmitButton(field) {
+  function findCommentSubmitButton(field, includeDisabled = false) {
     const form = field.form || field.closest("form");
     if (!form) return null;
     const buttons = Array.from(form.querySelectorAll("button[type='submit']"));
     return buttons.find((candidate) => {
-      if (candidate.disabled || candidate.hidden || !candidate.offsetParent) {
+      if (
+        (!includeDisabled && candidate.disabled) ||
+        candidate.hidden ||
+        !candidate.offsetParent
+      ) {
         return false;
       }
       const label = (
@@ -1554,6 +1558,7 @@
         mergeBlockedHeading.appendChild(row);
       }
       row.classList.remove("is-next-to-checks");
+      row.classList.remove("is-next-to-comment");
       row.classList.add("is-next-to-merge-status");
       return true;
     }
@@ -1571,6 +1576,7 @@
         checksPassedStatus.insertAdjacentElement("afterend", row);
       }
       row.classList.remove("is-next-to-merge-status");
+      row.classList.remove("is-next-to-comment");
       row.classList.add("is-next-to-checks");
       return true;
     }
@@ -1582,6 +1588,25 @@
     }
     row.classList.remove("is-next-to-merge-status");
     row.classList.remove("is-next-to-checks");
+    row.classList.remove("is-next-to-comment");
+    return true;
+  }
+
+  function placeReopenButtonRow(row) {
+    const field = findCommentField();
+    const submitButton = field && findCommentSubmitButton(field, true);
+    const buttonHost = submitButton && submitButton.parentElement;
+    const actionRow = buttonHost && buttonHost.parentElement;
+    if (!actionRow) return false;
+    if (
+      row.parentElement !== actionRow ||
+      row.nextElementSibling !== buttonHost
+    ) {
+      actionRow.insertBefore(row, buttonHost);
+    }
+    row.classList.remove("is-next-to-merge-status");
+    row.classList.remove("is-next-to-checks");
+    row.classList.add("is-next-to-comment");
     return true;
   }
 
@@ -1613,10 +1638,7 @@
     if (closureState === "closed") {
       if (existing) {
         updateReopenButtonState(existing);
-        placeWorkflowButtonRow(
-          existing.closest(".docs-pr-hh-sign-off-row"),
-          null
-        );
+        placeReopenButtonRow(existing.closest(".docs-pr-hh-sign-off-row"));
         return;
       }
 
@@ -1636,7 +1658,7 @@
       status.setAttribute("role", "status");
       status.setAttribute("aria-live", "polite");
       row.appendChild(status);
-      if (!placeWorkflowButtonRow(row, null)) return;
+      if (!placeReopenButtonRow(row)) return;
       updateReopenButtonState(button);
       return;
     }
