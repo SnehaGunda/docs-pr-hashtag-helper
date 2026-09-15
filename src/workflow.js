@@ -29,6 +29,10 @@
     );
   }
 
+  function isReopenControlLabel(value) {
+    return /^(?:reopen|reopen pull request)$/i.test(String(value || "").trim());
+  }
+
   function isAssigneeControlLabel(value) {
     const text = String(value || "");
     return (
@@ -104,6 +108,7 @@
     shouldShowWorkflowButton,
     isPassedChecksText,
     isClosedUnmergedText,
+    isReopenControlLabel,
     isAssigneeControlLabel,
     assignmentCommand,
     isLearnBuildBot,

@@ -72,9 +72,10 @@ A **Manifest V3 content script** that:
   checks display **sign-off to merge**. The button never bypasses GitHub
   permissions or PRMerger authorization.
 6. Shows **reopen pull request** immediately before GitHub's **Comment** button
-  when a pull request is closed without being merged. Selecting it posts
-  `#please-open` through GitHub's normal comment workflow. Merged pull requests
-  never show the reopen control.
+  when a pull request is closed without being merged and GitHub doesn't already
+  provide its native Reopen action. Selecting it posts `#please-open` through
+  GitHub's normal comment workflow. Merged pull requests never show the reopen
+  control.
 7. Adds **Assign** controls beside **Assignees** and **Reviewers**. Entering a
   search term displays matching GitHub accounts with their avatar, public full
   name when available, and username. Selecting an account posts the
