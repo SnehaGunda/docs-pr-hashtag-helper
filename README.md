@@ -59,18 +59,42 @@ A **Manifest V3 content script** that:
 3. Lets you navigate with the keyboard (Up/Down to move, Enter/Tab to insert,
    Esc to dismiss) or click to select.
 4. Inserts the chosen command in place of the partial token.
-5. Shows a green **sign-off to merge** shortcut beside GitHub's **Merging is
-  blocked** message on pull requests. The shortcut adds `#sign-off` to the
-  comment editor for review without submitting it. It is disabled after the
-  command is posted and the PR has the `ready-to-merge` label, then re-enabled
-  if that label is removed.
+5. Shows a green **sign-off to merge** shortcut directly beside GitHub's
+  **Merging is blocked** status after all required checks pass. It adds
+  `#sign-off` to the comment editor and submits it through GitHub's normal
+  **Comment** button, then immediately becomes a light-yellow **hold-off
+  merge** button in the same location. Posting `#hold-off` immediately turns
+  it back into **sign-off to merge**. On initial load, the extension finds the
+  latest posted `#sign-off` or `#hold-off` comment and displays the opposite
+  action. A newly submitted command and its next action are stored locally per
+  pull request, so the state survives a refresh until the comment appears in
+  the timeline. When no workflow comment or pending action exists, passed
+  checks display **sign-off to merge**. The button never bypasses GitHub
+  permissions or PRMerger authorization.
+6. Shows **reopen pull request** immediately before GitHub's **Comment** button
+  when a pull request is closed without being merged. Selecting it posts
+  `#please-open` through GitHub's normal comment workflow. Merged pull requests
+  never show the reopen control.
+7. Adds **Assign** controls beside **Assignees** and **Reviewers**. Entering a
+  search term displays matching GitHub accounts with their avatar, public full
+  name when available, and username. Selecting an account posts the
+  corresponding `#assign` or `#assign-reviewer` PRMerger comment. Compact
+  remove buttons beside people post `#unassign` or `#unassign-reviewer`
+  comments.
+8. Adds an **Add** control beside **Labels**. Entering a custom label posts
+  `#label:"label name"`; the remove button appears only beside custom labels
+  added through the extension and posts `#remove-label:"label name"`.
+  Predefined repository labels never receive a remove control. Pending changes
+  appear immediately and are stored locally per pull request until GitHub
+  reflects the update.
 
 Design choices:
 
 - **No build step, no dependencies.** Plain JavaScript and CSS so it's easy to
   audit and load unpacked.
 - **Least privilege.** Only requests `github.com` host access plus `storage` for
-  settings; no network calls, no storage of PR content.
+  settings. User search stays within GitHub, and the extension doesn't call
+  external services or store PR content.
 - **Data-driven.** The command list lives in `src/commands.js`, so updating it
   when the docs change is a one-file edit.
 
@@ -189,6 +213,12 @@ button, open it and share the message.
 > Tip: Don't submit test comments on a real docs PR — commands like `#sign-off`
 > and `#please-close` trigger live automation. Just confirm the text inserts,
 > then clear the box. To test end to end, use a throwaway PR in your own repo.
+>
+> [!IMPORTANT]
+> The **sign-off to merge** and **hold-off merge** buttons submit their commands
+> immediately. If the comment editor already contains a draft, that draft is
+> submitted together with the command. Autocomplete selections remain
+> insert-only and don't submit comments.
 
 ### Step 4 (optional) — Choose where it runs
 
