@@ -76,9 +76,11 @@ A **Manifest V3 content script** that:
   PRMerger comment. Compact remove buttons beside people post `#unassign` or
   `#unassign-reviewer` comments.
 7. Adds an **Add** control beside **Labels**. Entering a custom label posts
-  `#label:"label name"`; the remove button beside each label posts
-  `#remove-label:"label name"`. Pending changes appear immediately and are
-  stored locally per pull request until GitHub reflects the update.
+  `#label:"label name"`; the remove button appears only beside custom labels
+  added through the extension and posts `#remove-label:"label name"`.
+  Predefined repository labels never receive a remove control. Pending changes
+  appear immediately and are stored locally per pull request until GitHub
+  reflects the update.
 
 Design choices:
 

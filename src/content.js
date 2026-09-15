@@ -942,7 +942,12 @@
       if (!pendingAddedLabels.has(name) || renderedNames.has(name)) host.remove();
     });
     const labels = rendered
-      .filter(({ name }) => !pendingRemovedLabels.has(name.toLowerCase()))
+      .filter(({ name }) => {
+        const key = name.toLowerCase();
+        return (
+          pendingAddedLabels.has(key) && !pendingRemovedLabels.has(key)
+        );
+      })
       .concat(
         Array.from(pendingAddedLabels.values())
           .filter((name) => !renderedNames.has(name.toLowerCase()))
