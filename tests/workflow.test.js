@@ -8,6 +8,7 @@ const {
   isAssigneeControlLabel,
   assignmentCommand,
   isLearnBuildBot,
+  labelCommand,
   nextWorkflowCommand,
   commandForLatestComment,
   latestWorkflowCommand,
@@ -110,4 +111,16 @@ test("identifies Learn Build reviewer bots without excluding users", () => {
   assert.equal(isLearnBuildBot("service-account", "Learn Build Service"), true);
   assert.equal(isLearnBuildBot("gewarren", "Genevieve Warren"), false);
   assert.equal(isLearnBuildBot("build-reviewer", "Learn contributor"), false);
+});
+
+test("formats custom label automation commands", () => {
+  assert.equal(labelCommand("label", "needs review"), '#label:"needs review"');
+  assert.equal(
+    labelCommand("remove-label", "needs review"),
+    '#remove-label:"needs review"'
+  );
+  assert.equal(labelCommand("label", ""), null);
+  assert.equal(labelCommand("label", 'bad"label'), null);
+  assert.equal(labelCommand("remove", "needs review"), null);
+  assert.equal(labelCommand("label", "x".repeat(201)), null);
 });

@@ -48,6 +48,19 @@
     );
   }
 
+  function labelCommand(action, label) {
+    const name = String(label || "").trim();
+    if (
+      !["label", "remove-label"].includes(action) ||
+      !name ||
+      name.length > 200 ||
+      /[\r\n"]/.test(name)
+    ) {
+      return null;
+    }
+    return `#${action}:"${name}"`;
+  }
+
   function nextWorkflowCommand(command) {
     return command === "#sign-off" ? "#hold-off" : "#sign-off";
   }
@@ -82,6 +95,7 @@
     isAssigneeControlLabel,
     assignmentCommand,
     isLearnBuildBot,
+    labelCommand,
     nextWorkflowCommand,
     commandForLatestComment,
     latestWorkflowCommand,

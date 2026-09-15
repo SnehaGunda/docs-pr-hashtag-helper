@@ -26,6 +26,7 @@
   const WORKFLOW_COMMANDS_KEY = "workflowCommands";
   const ASSIGNMENT_STATES_KEY = "assignmentStates";
   const REVIEWER_STATES_KEY = "reviewerStates";
+  const LABEL_STATES_KEY = "labelStates";
 
   const DocsPRHelperConfig = {
     DEFAULT_SETTINGS,
@@ -146,6 +147,37 @@
         delete states[prKey];
       }
       await localApi.set({ [REVIEWER_STATES_KEY]: states });
+    },
+
+    async getLabelState(prKey) {
+      if (!localApi || !prKey) return null;
+      try {
+        const stored = await localApi.get(LABEL_STATES_KEY);
+        const state = stored[LABEL_STATES_KEY]?.[prKey];
+        if (!state) return null;
+        return {
+          addedLabels: Array.isArray(state.addedLabels)
+            ? state.addedLabels
+            : [],
+          removedLabels: Array.isArray(state.removedLabels)
+            ? state.removedLabels
+            : []
+        };
+      } catch (e) {
+        return null;
+      }
+    },
+
+    async setLabelState(prKey, addedLabels, removedLabels) {
+      if (!localApi || !prKey) return;
+      const stored = await localApi.get(LABEL_STATES_KEY);
+      const states = { ...(stored[LABEL_STATES_KEY] || {}) };
+      if (addedLabels.length || removedLabels.length) {
+        states[prKey] = { addedLabels, removedLabels };
+      } else {
+        delete states[prKey];
+      }
+      await localApi.set({ [LABEL_STATES_KEY]: states });
     },
 
     /**

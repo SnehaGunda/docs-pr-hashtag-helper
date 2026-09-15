@@ -31,10 +31,15 @@
   let loadingAssignmentKey = null;
   let loadedReviewerKey = null;
   let loadingReviewerKey = null;
+  let labelPicker = null;
+  let loadedLabelKey = null;
+  let loadingLabelKey = null;
   const pendingAssignedUsers = new Map();
   const pendingUnassignedUsers = new Set();
   const pendingReviewers = new Map();
   const pendingUnassignedReviewers = new Set();
+  const pendingAddedLabels = new Map();
+  const pendingRemovedLabels = new Set();
 
   // Current settings, refreshed live. Gating is evaluated per keystroke so it
   // stays correct as GitHub navigates between repos without a full reload.
@@ -311,6 +316,101 @@
         heading.closest("form[aria-label*='reviewer' i]") ||
         heading.parentElement)
     );
+  }
+
+  function findLabelsHeading() {
+    return Array.from(
+      document.querySelectorAll("summary, h2, h3, h4, [role='heading']")
+    ).find((heading) => {
+      if (!heading.offsetParent) return false;
+      const copy = heading.cloneNode(true);
+      copy
+        .querySelectorAll(".docs-pr-hh-add-label, .docs-pr-hh-remove-label")
+        .forEach((button) => button.remove());
+      return /^labels$/i.test(copy.textContent.trim());
+    });
+  }
+
+  function labelsSection(heading = findLabelsHeading()) {
+    return (
+      heading &&
+      (heading.closest(".discussion-sidebar-item") ||
+        heading.closest("form[aria-label*='label' i]") ||
+        heading.parentElement)
+    );
+  }
+
+  function hideLabelPicker() {
+    if (labelPicker) labelPicker.hidden = true;
+  }
+
+  function getLabelPicker() {
+    if (labelPicker) return labelPicker;
+    labelPicker = document.createElement("div");
+    labelPicker.className = "docs-pr-hh-label-picker";
+    labelPicker.hidden = true;
+    labelPicker.setAttribute("role", "dialog");
+    labelPicker.setAttribute("aria-label", "Add a custom label");
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "docs-pr-hh-label-input";
+    input.placeholder = "Custom label name";
+    input.maxLength = 200;
+    input.setAttribute("aria-label", "Custom label name");
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") hideLabelPicker();
+      if (event.key === "Enter") {
+        event.preventDefault();
+        labelPicker.querySelector(".docs-pr-hh-label-submit").click();
+      }
+    });
+    labelPicker.appendChild(input);
+
+    const submit = document.createElement("button");
+    submit.type = "button";
+    submit.className = "docs-pr-hh-label-submit";
+    submit.textContent = "Add";
+    submit.addEventListener("click", () => {
+      const label = input.value.trim();
+      if (!WORKFLOW.labelCommand("label", label)) {
+        input.setCustomValidity(
+          label
+            ? "Label names cannot contain quotes or new lines."
+            : "Enter a label name."
+        );
+        input.reportValidity();
+        return;
+      }
+      input.setCustomValidity("");
+      hideLabelPicker();
+      postLabelCommand(
+        document.querySelector(".docs-pr-hh-add-label"),
+        "label",
+        label
+      );
+      input.value = "";
+    });
+    labelPicker.appendChild(submit);
+    document.body.appendChild(labelPicker);
+    return labelPicker;
+  }
+
+  function showLabelPicker(button) {
+    const picker = getLabelPicker();
+    const rect = button.getBoundingClientRect();
+    picker.style.top = `${window.scrollY + rect.bottom + 6}px`;
+    picker.style.left = `${Math.max(
+      8,
+      Math.min(
+        window.scrollX + rect.left,
+        document.documentElement.clientWidth - 328
+      )
+    )}px`;
+    picker.hidden = false;
+    const input = picker.querySelector(".docs-pr-hh-label-input");
+    input.setCustomValidity("");
+    input.focus();
   }
 
   function hideAssignmentPicker() {
@@ -781,6 +881,134 @@
     syncUnassignReviewerButtons(section);
   }
 
+  function visibleLabels(section) {
+    const labels = new Map();
+    section
+      .querySelectorAll(
+        ".js-issue-labels .IssueLabel, " +
+          ".js-issue-labels [data-testid='issue-label'], " +
+          ".js-issue-labels a[href*='/labels/']"
+      )
+      .forEach((label) => {
+        if (!label.offsetParent || label.closest(".docs-pr-hh-label-row")) return;
+        const name = label.textContent.trim();
+        if (!name || labels.has(name.toLowerCase())) return;
+        let host = label.closest(".docs-pr-hh-label-control");
+        if (!host) {
+          host = document.createElement("span");
+          host.className = "docs-pr-hh-label-control";
+          label.parentElement.insertBefore(host, label);
+          host.appendChild(label);
+        }
+        labels.set(name.toLowerCase(), { name, host });
+      });
+    return Array.from(labels.values());
+  }
+
+  function labelActionHost(section, name) {
+    const key = name.toLowerCase();
+    let host = Array.from(
+      section.querySelectorAll(".docs-pr-hh-label-row")
+    ).find((item) => item.dataset.label.toLowerCase() === key);
+    if (host) return host;
+
+    host = document.createElement("span");
+    host.className = "docs-pr-hh-label-row";
+    host.dataset.label = name;
+    const text = document.createElement("span");
+    text.className = "docs-pr-hh-label-name";
+    text.textContent = name;
+    host.appendChild(text);
+    const labels = section.querySelector(".js-issue-labels") || section;
+    labels.appendChild(host);
+    return host;
+  }
+
+  function syncRemoveLabelButtons(section) {
+    const rendered = visibleLabels(section);
+    const renderedNames = new Set(
+      rendered.map(({ name }) => name.toLowerCase())
+    );
+    pendingRemovedLabels.forEach((name) => {
+      if (!renderedNames.has(name)) pendingRemovedLabels.delete(name);
+    });
+    rendered.forEach(({ name, host }) => {
+      const removing = pendingRemovedLabels.has(name.toLowerCase());
+      host.classList.toggle("docs-pr-hh-removing-label", removing);
+      host.hidden = removing;
+    });
+    section.querySelectorAll(".docs-pr-hh-label-row").forEach((host) => {
+      const name = host.dataset.label.toLowerCase();
+      if (!pendingAddedLabels.has(name) || renderedNames.has(name)) host.remove();
+    });
+    const labels = rendered
+      .filter(({ name }) => !pendingRemovedLabels.has(name.toLowerCase()))
+      .concat(
+        Array.from(pendingAddedLabels.values())
+          .filter((name) => !renderedNames.has(name.toLowerCase()))
+          .map((name) => ({ name, host: labelActionHost(section, name) }))
+      );
+    const current = new Set(labels.map(({ name }) => name.toLowerCase()));
+    section.querySelectorAll(".docs-pr-hh-remove-label").forEach((button) => {
+      if (!current.has(button.dataset.label.toLowerCase())) button.remove();
+    });
+    labels.forEach(({ name, host }) => {
+      if (host.querySelector(".docs-pr-hh-remove-label")) return;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "docs-pr-hh-remove-label";
+      button.dataset.label = name;
+      button.textContent = "×";
+      button.title = `Remove label ${name}`;
+      button.setAttribute("aria-label", `Remove label ${name}`);
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        postLabelCommand(button, "remove-label", name);
+      });
+      host.appendChild(button);
+    });
+    const noneYet = Array.from(
+      section.querySelectorAll(".js-issue-labels *")
+    ).find((item) => item.textContent.trim() === "None yet");
+    if (noneYet) noneYet.hidden = labels.length > 0;
+  }
+
+  function syncLabelButton() {
+    const existing = document.querySelector(".docs-pr-hh-add-label");
+    const heading = findLabelsHeading();
+    const section = labelsSection(heading);
+    if (!heading || !section) {
+      if (existing) existing.remove();
+      hideLabelPicker();
+      return;
+    }
+    ensureLabelStateLoaded();
+    if (existing) {
+      if (existing.parentElement !== heading) heading.appendChild(existing);
+      syncRemoveLabelButtons(section);
+      return;
+    }
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "docs-pr-hh-add-label";
+    button.textContent = "Add";
+    button.title = "Add a custom label with a PRMerger hashtag comment";
+    button.setAttribute("aria-label", button.title);
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (labelPicker && !labelPicker.hidden) {
+        hideLabelPicker();
+      } else {
+        showLabelPicker(button);
+      }
+    });
+    heading.appendChild(button);
+    syncRemoveLabelButtons(section);
+  }
+
   function announceSignOffStatus(button, message) {
     const status = button.parentElement.querySelector(
       ".docs-pr-hh-sign-off-status"
@@ -871,6 +1099,39 @@
       prKey,
       Array.from(pendingReviewers.values()),
       Array.from(pendingUnassignedReviewers.values())
+    );
+  }
+
+  function ensureLabelStateLoaded() {
+    const prKey = currentPullRequestKey();
+    if (!prKey || !CONFIG || !CONFIG.getLabelState) return;
+    if (loadedLabelKey === prKey || loadingLabelKey === prKey) return;
+
+    loadingLabelKey = prKey;
+    CONFIG.getLabelState(prKey).then((state) => {
+      if (currentPullRequestKey() === prKey) {
+        pendingAddedLabels.clear();
+        pendingRemovedLabels.clear();
+        (state?.addedLabels || []).forEach((name) =>
+          pendingAddedLabels.set(name.toLowerCase(), name)
+        );
+        (state?.removedLabels || []).forEach((name) =>
+          pendingRemovedLabels.add(name.toLowerCase())
+        );
+        loadedLabelKey = prKey;
+        queueSignOffSync();
+      }
+      loadingLabelKey = null;
+    });
+  }
+
+  function persistLabelState() {
+    const prKey = currentPullRequestKey();
+    if (!prKey || !CONFIG || !CONFIG.setLabelState) return;
+    CONFIG.setLabelState(
+      prKey,
+      Array.from(pendingAddedLabels.values()),
+      Array.from(pendingRemovedLabels.values())
     );
   }
 
@@ -1114,6 +1375,34 @@
     });
   }
 
+  function postLabelCommand(button, action, label) {
+    const command = WORKFLOW.labelCommand(action, label);
+    const field = findCommentField();
+    if (!command || !field) {
+      announceAssignmentStatus(button, "Open the Write tab first.");
+      return;
+    }
+
+    const before = field.value;
+    const separator = before && !before.endsWith("\n") ? "\n" : "";
+    const value = before + separator + command;
+    setFieldValue(field, value, value.length);
+    announceAssignmentStatus(button, `Posting ${command}...`);
+    submitAssignmentWhenReady(field, button, command, () => {
+      const key = label.toLowerCase();
+      if (action === "label") {
+        pendingRemovedLabels.delete(key);
+        pendingAddedLabels.set(key, label);
+      } else {
+        pendingAddedLabels.delete(key);
+        pendingRemovedLabels.add(key);
+      }
+      persistLabelState();
+      const section = labelsSection();
+      if (section) syncRemoveLabelButtons(section);
+    });
+  }
+
   function postWorkflowComment(button) {
     const field = findCommentField();
     if (!field) {
@@ -1248,10 +1537,13 @@
         ".docs-pr-hh-assign-reviewer"
       );
       if (reviewerButton) reviewerButton.remove();
+      const labelButton = document.querySelector(".docs-pr-hh-add-label");
+      if (labelButton) labelButton.remove();
       return;
     }
     syncAssignButton();
     syncReviewerButton();
+    syncLabelButton();
     if (!ensureWorkflowStateLoaded()) return;
 
     const readyToMerge = hasReadyToMergeLabel();

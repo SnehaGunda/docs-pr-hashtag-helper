@@ -74,3 +74,16 @@ test("persists reviewer command state separately by pull request", async () => {
     "assignee"
   ]);
 });
+
+test("persists custom label state separately by pull request", async () => {
+  const { config, store } = loadConfig();
+  const prKey = "microsoftdocs/repo#42";
+
+  await config.setLabelState(prKey, ["needs review"], ["do not merge"]);
+
+  const state = await config.getLabelState(prKey);
+  assert.deepEqual(Array.from(state.addedLabels), ["needs review"]);
+  assert.deepEqual(Array.from(state.removedLabels), ["do not merge"]);
+  assert.equal(store.assignmentStates, undefined);
+  assert.equal(store.reviewerStates, undefined);
+});

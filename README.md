@@ -71,11 +71,14 @@ A **Manifest V3 content script** that:
   the timeline. When no workflow comment or pending action exists, passed
   checks display **sign-off to merge**. The button never bypasses GitHub
   permissions or PRMerger authorization.
-6. Adds an **Assign** button beside GitHub's editable **Assignees** control.
-   Selecting it opens GitHub's native assignee picker. GitHub supplies the
-   eligible users and performs the assignment when you select a user. The
-   button is hidden when GitHub doesn't expose the assignee control for the
-   current user.
+6. Adds **Assign** controls beside **Assignees** and **Reviewers**. Entering a
+  GitHub username posts the corresponding `#assign` or `#assign-reviewer`
+  PRMerger comment. Compact remove buttons beside people post `#unassign` or
+  `#unassign-reviewer` comments.
+7. Adds an **Add** control beside **Labels**. Entering a custom label posts
+  `#label:"label name"`; the remove button beside each label posts
+  `#remove-label:"label name"`. Pending changes appear immediately and are
+  stored locally per pull request until GitHub reflects the update.
 
 Design choices:
 
