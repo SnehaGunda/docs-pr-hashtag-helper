@@ -21,6 +21,7 @@
   let signOffSyncQueued = false;
   let workflowCommandOverride = null;
   let pendingPostedWorkflowCommand = null;
+  let reopenRequested = false;
   let loadedWorkflowKey = null;
   let loadingWorkflowKey = null;
   let assignmentPicker = null;
@@ -1192,6 +1193,38 @@
     return null;
   }
 
+  function pullRequestClosureState() {
+    const stateElements = document.querySelectorAll(
+      "[data-testid='mergebox-border-container'] h1, " +
+        "[data-testid='mergebox-border-container'] h2, " +
+        "[data-testid='mergebox-border-container'] h3, " +
+        "[data-testid='pull-request-state'], " +
+        "[data-testid='issue-state'], " +
+        ".gh-header-meta .State, " +
+        "#partial-discussion-header .State"
+    );
+    const states = Array.from(stateElements)
+      .filter((element) => element.offsetParent)
+      .map((element) => ({
+        className: String(element.className || ""),
+        text: element.textContent.trim().replace(/\s+/g, " ")
+      }));
+    if (
+      states.some(
+        ({ className, text }) =>
+          /State--merged/.test(className) ||
+          /^(?:merged|pull request successfully merged(?: and closed)?|this pull request was merged)[.!]?$/i.test(
+            text
+          )
+      )
+    ) {
+      return "merged";
+    }
+    return states.some(({ text }) => WORKFLOW.isClosedUnmergedText(text))
+      ? "closed"
+      : "open";
+  }
+
   function latestPostedWorkflowCommand() {
     const commentBodies = Array.from(
       document.querySelectorAll(
@@ -1251,6 +1284,20 @@
     button.setAttribute("aria-label", button.title);
   }
 
+  function updateReopenButtonState(button) {
+    button.disabled = reopenRequested;
+    button.textContent = reopenRequested
+      ? "reopen requested"
+      : "reopen pull request";
+    button.dataset.command = "#please-open";
+    button.classList.remove("is-hold-off");
+    button.classList.add("is-reopen");
+    button.title = reopenRequested
+      ? "Posted #please-open. Waiting for PRMerger."
+      : "Post #please-open as a PR comment";
+    button.setAttribute("aria-label", button.title);
+  }
+
   function findCommentSubmitButton(field) {
     const form = field.form || field.closest("form");
     if (!form) return null;
@@ -1274,6 +1321,12 @@
     const submitButton = findCommentSubmitButton(field);
     if (submitButton) {
       submitButton.click();
+      if (command === "#please-open") {
+        reopenRequested = true;
+        updateReopenButtonState(button);
+        announceSignOffStatus(button, `Posted ${command}.`);
+        return;
+      }
       workflowCommandOverride = WORKFLOW.nextWorkflowCommand(command);
       pendingPostedWorkflowCommand = command;
       persistWorkflowCommand(workflowCommandOverride, command);
@@ -1408,14 +1461,14 @@
     });
   }
 
-  function postWorkflowComment(button) {
+  function postWorkflowComment(button, requestedCommand = null) {
     const field = findCommentField();
     if (!field) {
       announceSignOffStatus(button, "Open the Write tab first.");
       return;
     }
 
-    const trigger = currentWorkflowCommand();
+    const trigger = requestedCommand || currentWorkflowCommand();
     const command = COMMANDS.find((item) => item.trigger === trigger);
     const insertText = command ? command.insert.trimEnd() : trigger;
     if (WORKFLOW.containsCommand(field.value, trigger)) {
@@ -1437,6 +1490,7 @@
 
   function findWorkflowButtonHost() {
     const selectors = [
+      "[data-testid='mergebox-border-container']",
       "[data-testid='merge-box']",
       "#partial-pull-merging",
       ".js-pull-merging",
@@ -1549,6 +1603,44 @@
     syncAssignButton();
     syncReviewerButton();
     syncLabelButton();
+
+    const closureState = pullRequestClosureState();
+    if (closureState === "merged") {
+      reopenRequested = false;
+      if (existing) existing.closest(".docs-pr-hh-sign-off-row").remove();
+      return;
+    }
+    if (closureState === "closed") {
+      if (existing) {
+        updateReopenButtonState(existing);
+        placeWorkflowButtonRow(
+          existing.closest(".docs-pr-hh-sign-off-row"),
+          null
+        );
+        return;
+      }
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "docs-pr-hh-sign-off is-reopen";
+      button.addEventListener("click", () =>
+        postWorkflowComment(button, "#please-open")
+      );
+
+      const row = document.createElement("span");
+      row.className = "docs-pr-hh-sign-off-row";
+      row.appendChild(button);
+
+      const status = document.createElement("span");
+      status.className = "docs-pr-hh-sign-off-status";
+      status.setAttribute("role", "status");
+      status.setAttribute("aria-live", "polite");
+      row.appendChild(status);
+      if (!placeWorkflowButtonRow(row, null)) return;
+      updateReopenButtonState(button);
+      return;
+    }
+    reopenRequested = false;
     if (!ensureWorkflowStateLoaded()) return;
 
     const readyToMerge = hasReadyToMergeLabel();
@@ -1577,7 +1669,9 @@
     button.textContent = "sign-off to merge";
     button.title = "Post #sign-off as a PR comment";
     button.setAttribute("aria-label", "Post #sign-off as a PR comment");
-    button.addEventListener("click", () => postWorkflowComment(button));
+    button.addEventListener("click", () =>
+      postWorkflowComment(button, button.dataset.command)
+    );
 
     const row = document.createElement("span");
     row.className = "docs-pr-hh-sign-off-row";

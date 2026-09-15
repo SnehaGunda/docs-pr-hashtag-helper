@@ -18,6 +18,17 @@
     );
   }
 
+  function isClosedUnmergedText(value) {
+    const text = String(value || "")
+      .trim()
+      .replace(/\s+/g, " ");
+    return (
+      /^(?:closed|closed with unmerged commits|this pull request is closed)[.!]?$/i.test(
+        text
+      ) && !/\bmerged\b/i.test(text)
+    );
+  }
+
   function isAssigneeControlLabel(value) {
     const text = String(value || "");
     return (
@@ -92,6 +103,7 @@
     commandForReadyState,
     shouldShowWorkflowButton,
     isPassedChecksText,
+    isClosedUnmergedText,
     isAssigneeControlLabel,
     assignmentCommand,
     isLearnBuildBot,

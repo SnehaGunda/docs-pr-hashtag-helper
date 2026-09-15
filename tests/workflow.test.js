@@ -5,6 +5,7 @@ const {
   commandForReadyState,
   shouldShowWorkflowButton,
   isPassedChecksText,
+  isClosedUnmergedText,
   isAssigneeControlLabel,
   assignmentCommand,
   isLearnBuildBot,
@@ -75,6 +76,15 @@ test("recognizes GitHub passed-check status variants", () => {
   assert.equal(isPassedChecksText("All required checks were successful"), true);
   assert.equal(isPassedChecksText("Some checks are still pending"), false);
   assert.equal(isPassedChecksText("2 checks failed"), false);
+});
+
+test("recognizes closed unmerged pull requests without matching merged ones", () => {
+  assert.equal(isClosedUnmergedText("Closed with unmerged commits"), true);
+  assert.equal(isClosedUnmergedText("This pull request is closed."), true);
+  assert.equal(isClosedUnmergedText("Closed"), true);
+  assert.equal(isClosedUnmergedText("Merged and closed"), false);
+  assert.equal(isClosedUnmergedText("This pull request was merged"), false);
+  assert.equal(isClosedUnmergedText("Open"), false);
 });
 
 test("recognizes native GitHub assignee controls", () => {
