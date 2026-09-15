@@ -1552,35 +1552,6 @@
     submitCommentWhenReady(field, button, trigger);
   }
 
-  function findWorkflowButtonHost() {
-    const selectors = [
-      "[data-testid='mergebox-border-container']",
-      "[data-testid='merge-box']",
-      "#partial-pull-merging",
-      ".js-pull-merging",
-      ".merge-message"
-    ];
-    const mergeStatus = selectors
-      .map((selector) => document.querySelector(selector))
-      .find((element) => element && element.offsetParent);
-    if (mergeStatus) return mergeStatus;
-
-    const mergeHeading = Array.from(
-      document.querySelectorAll("h1, h2, h3, h4, [role='heading']")
-    ).find((heading) =>
-      /^(merging is blocked|ready to merge|this branch has no conflicts)/i.test(
-        heading.textContent.trim()
-      )
-    );
-    if (mergeHeading && mergeHeading.parentElement) {
-      return mergeHeading.parentElement;
-    }
-
-    const field = findCommentField();
-    const form = field && (field.form || field.closest("form"));
-    return form && form.offsetParent ? form : null;
-  }
-
   function findMergeBlockedHeading() {
     return Array.from(
       document.querySelectorAll("h1, h2, h3, h4, [role='heading']")
@@ -1594,61 +1565,14 @@
     });
   }
 
-  function findChecksSummaryPlacement(checksPassedStatus) {
-    let current = checksPassedStatus.parentElement;
-    for (let depth = 0; current && depth < 5; depth += 1) {
-      const toggle = Array.from(current.querySelectorAll("button")).find(
-        (button) =>
-          button.offsetParent &&
-          (button.hasAttribute("aria-expanded") ||
-            /checks|expand|collapse/i.test(
-              button.getAttribute("aria-label") || ""
-            ))
-      );
-      if (toggle) return { container: current, before: toggle };
-      current = current.parentElement;
+  function placeWorkflowButtonRow(row, mergeBlockedHeading) {
+    if (!mergeBlockedHeading) return false;
+    if (row.parentElement !== mergeBlockedHeading) {
+      mergeBlockedHeading.appendChild(row);
     }
-    return null;
-  }
-
-  function placeWorkflowButtonRow(row, checksPassedStatus) {
-    const mergeBlockedHeading = findMergeBlockedHeading();
-    if (mergeBlockedHeading) {
-      if (row.parentElement !== mergeBlockedHeading) {
-        mergeBlockedHeading.appendChild(row);
-      }
-      row.classList.remove("is-next-to-checks");
-      row.classList.remove("is-next-to-comment");
-      row.classList.add("is-next-to-merge-status");
-      return true;
-    }
-
-    if (checksPassedStatus) {
-      const placement = findChecksSummaryPlacement(checksPassedStatus);
-      if (placement) {
-        if (
-          row.parentElement !== placement.container ||
-          row.nextElementSibling !== placement.before
-        ) {
-          placement.container.insertBefore(row, placement.before);
-        }
-      } else if (checksPassedStatus.nextElementSibling !== row) {
-        checksPassedStatus.insertAdjacentElement("afterend", row);
-      }
-      row.classList.remove("is-next-to-merge-status");
-      row.classList.remove("is-next-to-comment");
-      row.classList.add("is-next-to-checks");
-      return true;
-    }
-
-    const host = findWorkflowButtonHost();
-    if (!host) return false;
-    if (row.parentElement !== host || host.firstElementChild !== row) {
-      host.insertBefore(row, host.firstChild);
-    }
-    row.classList.remove("is-next-to-merge-status");
     row.classList.remove("is-next-to-checks");
     row.classList.remove("is-next-to-comment");
+    row.classList.add("is-next-to-merge-status");
     return true;
   }
 
@@ -1748,7 +1672,9 @@
 
     const readyToMerge = hasReadyToMergeLabel();
     const checksPassedStatus = findAllChecksPassedStatus();
+    const mergeBlockedHeading = findMergeBlockedHeading();
     if (
+      !mergeBlockedHeading ||
       !WORKFLOW.shouldShowWorkflowButton(
         readyToMerge,
         Boolean(checksPassedStatus)
@@ -1761,7 +1687,7 @@
       updateSignOffButtonState(existing);
       placeWorkflowButtonRow(
         existing.closest(".docs-pr-hh-sign-off-row"),
-        checksPassedStatus
+        mergeBlockedHeading
       );
       return;
     }
@@ -1785,7 +1711,7 @@
     status.setAttribute("role", "status");
     status.setAttribute("aria-live", "polite");
     row.appendChild(status);
-    if (!placeWorkflowButtonRow(row, checksPassedStatus)) return;
+    if (!placeWorkflowButtonRow(row, mergeBlockedHeading)) return;
     updateSignOffButtonState(button);
   }
 
