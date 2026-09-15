@@ -1277,7 +1277,7 @@
     const command = currentWorkflowCommand();
     const isHoldOff = command === "#hold-off";
     button.disabled = false;
-    button.textContent = isHoldOff ? "hold-off merge" : "sign-off to merge";
+    button.textContent = isHoldOff ? "Hold-off merge" : "Sign-off to merge";
     button.dataset.command = command;
     button.classList.toggle("is-hold-off", isHoldOff);
     button.title = `Post ${command} as a PR comment`;
@@ -1287,8 +1287,8 @@
   function updateReopenButtonState(button) {
     button.disabled = reopenRequested;
     button.textContent = reopenRequested
-      ? "reopen requested"
-      : "reopen pull request";
+      ? "Reopen requested"
+      : "Reopen pull request";
     button.dataset.command = "#please-open";
     button.classList.remove("is-hold-off");
     button.classList.add("is-reopen");
@@ -1688,7 +1688,7 @@
     const button = document.createElement("button");
     button.type = "button";
     button.className = "docs-pr-hh-sign-off";
-    button.textContent = "sign-off to merge";
+    button.textContent = "Sign-off to merge";
     button.title = "Post #sign-off as a PR comment";
     button.setAttribute("aria-label", "Post #sign-off as a PR comment");
     button.addEventListener("click", () =>
