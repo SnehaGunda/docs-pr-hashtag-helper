@@ -16,14 +16,19 @@ data.
 - When you use an assignee, reviewer, or custom-label control, inserts the
   corresponding PRMerger hashtag command and activates GitHub's normal
   **Comment** button.
+- When you search for an assignee or reviewer, queries GitHub and displays the
+  matching accounts' avatars, public full names, and usernames. These search
+  results aren't stored by the extension.
 
 ## Data handling
 
-- **No data collection.** The extension does not read, store, or send the
-  content of your comments, PRs, issues, or any page content anywhere.
-- **No independent network requests.** The extension has no analytics,
-  tracking, telemetry, or external service calls. Workflow, assignee, reviewer,
-  and label controls initiate GitHub's own comment submission on your behalf.
+- **No data collection.** The extension reads the GitHub page locally to provide
+  its controls, but doesn't collect or transmit page content to the extension
+  author or any external service.
+- **GitHub-only requests.** The extension has no analytics, tracking, telemetry,
+  or external service calls. User searches query GitHub, and workflow,
+  assignee, reviewer, and label controls initiate GitHub's own comment
+  submission on your behalf.
 - **Settings storage only.** Your scope preference (run everywhere vs. an
   org/repo allowlist) is stored with the browser's `storage.sync` API so it
   roams with your signed-in browser profile. The extension also stores the last

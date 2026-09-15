@@ -76,9 +76,11 @@ A **Manifest V3 content script** that:
   `#please-open` through GitHub's normal comment workflow. Merged pull requests
   never show the reopen control.
 7. Adds **Assign** controls beside **Assignees** and **Reviewers**. Entering a
-  GitHub username posts the corresponding `#assign` or `#assign-reviewer`
-  PRMerger comment. Compact remove buttons beside people post `#unassign` or
-  `#unassign-reviewer` comments.
+  search term displays matching GitHub accounts with their avatar, public full
+  name when available, and username. Selecting an account posts the
+  corresponding `#assign` or `#assign-reviewer` PRMerger comment. Compact
+  remove buttons beside people post `#unassign` or `#unassign-reviewer`
+  comments.
 8. Adds an **Add** control beside **Labels**. Entering a custom label posts
   `#label:"label name"`; the remove button appears only beside custom labels
   added through the extension and posts `#remove-label:"label name"`.
@@ -91,7 +93,8 @@ Design choices:
 - **No build step, no dependencies.** Plain JavaScript and CSS so it's easy to
   audit and load unpacked.
 - **Least privilege.** Only requests `github.com` host access plus `storage` for
-  settings; no network calls, no storage of PR content.
+  settings. User search stays within GitHub, and the extension doesn't call
+  external services or store PR content.
 - **Data-driven.** The command list lives in `src/commands.js`, so updating it
   when the docs change is a one-file edit.
 

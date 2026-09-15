@@ -435,6 +435,40 @@
       : null;
   }
 
+  function githubUserFromSearchTitle(title) {
+    const links = Array.from(title.querySelectorAll("a[href]"));
+    const profileLink = links.find((link) =>
+      githubUsernameFromPath(link.getAttribute("href"))
+    );
+    const username = profileLink
+      ? githubUsernameFromPath(profileLink.getAttribute("href"))
+      : null;
+    if (!username) return null;
+
+    const name = links
+      .map((link) => link.textContent.trim())
+      .find(
+        (text) => text && text.toLowerCase() !== username.toLowerCase()
+      );
+    let result = title;
+    for (let depth = 0; result && depth < 5; depth += 1) {
+        if (result.querySelectorAll(".search-title").length > 1) {
+          result = null;
+          break;
+        }
+        if (result.querySelector("img[src]")) break;
+      result = result.parentElement;
+    }
+    const image = result && result.querySelector("img[src]");
+    return {
+      username,
+      name: name || null,
+      avatarUrl:
+        (image && image.getAttribute("src")) ||
+        `https://github.com/${username}.png?size=40`
+    };
+  }
+
   async function searchGitHubUsers(query) {
     if (assignmentSearchController) assignmentSearchController.abort();
     assignmentSearchController = new AbortController();
@@ -449,27 +483,53 @@
     const html = await response.text();
     const result = new DOMParser().parseFromString(html, "text/html");
     const users = new Map();
-    result.querySelectorAll(".search-title a[href]").forEach((link) => {
-      const username = githubUsernameFromPath(link.getAttribute("href"));
-      if (!username || users.has(username.toLowerCase())) return;
-      users.set(username.toLowerCase(), username);
+    result.querySelectorAll(".search-title").forEach((title) => {
+      const user = githubUserFromSearchTitle(title);
+      if (!user || users.has(user.username.toLowerCase())) return;
+      users.set(user.username.toLowerCase(), user);
     });
     return Array.from(users.values()).slice(0, 10);
   }
 
-  function renderAssignmentUsers(usernames) {
+  function renderAssignmentUsers(users) {
     const list = assignmentPicker.querySelector(".docs-pr-hh-user-list");
     list.replaceChildren();
-    if (usernames.length === 0) {
+    if (users.length === 0) {
       assignmentPickerMessage("No GitHub users found.");
       return;
     }
-    usernames.forEach((username) => {
+    users.forEach(({ username, name, avatarUrl }) => {
       const option = document.createElement("button");
       option.type = "button";
       option.className = "docs-pr-hh-user-option";
       option.setAttribute("role", "option");
-      option.textContent = `@${username}`;
+      option.setAttribute(
+        "aria-label",
+        name ? `${name}, @${username}` : `@${username}`
+      );
+
+      const avatar = document.createElement("img");
+      avatar.className = "docs-pr-hh-user-avatar";
+      avatar.src = avatarUrl;
+      avatar.alt = "";
+      avatar.width = 32;
+      avatar.height = 32;
+      avatar.loading = "lazy";
+      option.appendChild(avatar);
+
+      const identity = document.createElement("span");
+      identity.className = "docs-pr-hh-user-identity";
+      if (name) {
+        const fullName = document.createElement("span");
+        fullName.className = "docs-pr-hh-user-name";
+        fullName.textContent = name;
+        identity.appendChild(fullName);
+      }
+      const login = document.createElement("span");
+      login.className = "docs-pr-hh-user-login";
+      login.textContent = `@${username}`;
+      identity.appendChild(login);
+      option.appendChild(identity);
       option.addEventListener("click", () => {
         hideAssignmentPicker();
         const reviewer = assignmentPickerAction === "assign-reviewer";

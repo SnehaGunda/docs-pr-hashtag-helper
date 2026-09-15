@@ -268,11 +268,13 @@
 }
 
 .docs-pr-hh-user-option {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
   padding: 6px 8px;
   color: var(--fgColor-default, #1f2328);
-  font: 600 13px/20px -apple-system, BlinkMacSystemFont, "Segoe UI",
+  font: 400 13px/18px -apple-system, BlinkMacSystemFont, "Segoe UI",
     "Noto Sans", Helvetica, Arial, sans-serif;
   letter-spacing: 0;
   text-align: left;
@@ -287,6 +289,42 @@
   color: var(--fgColor-onEmphasis, #ffffff);
   background: var(--bgColor-accent-emphasis, #0969da);
   outline: none;
+}
+
+.docs-pr-hh-user-avatar {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  background: var(--bgColor-muted, #f6f8fa);
+  border-radius: 50%;
+}
+
+.docs-pr-hh-user-identity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  text-align: left;
+}
+
+.docs-pr-hh-user-name,
+.docs-pr-hh-user-login {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.docs-pr-hh-user-name {
+  font-weight: 600;
+}
+
+.docs-pr-hh-user-login {
+  color: var(--fgColor-muted, #656d76);
+}
+
+.docs-pr-hh-user-option:hover .docs-pr-hh-user-login,
+.docs-pr-hh-user-option:focus-visible .docs-pr-hh-user-login {
+  color: inherit;
 }
 
 .docs-pr-hh-user-message {
