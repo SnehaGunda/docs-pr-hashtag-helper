@@ -66,6 +66,13 @@ window.DOCS_PR_COMMANDS = [
     description: "Adds a GitHub account to Assignees."
   },
   {
+    trigger: "#unassign:",
+    display: "#unassign:<GitHub account>",
+    insert: "#unassign:${CURSOR}",
+    summary: "Unassign",
+    description: "Removes a GitHub account from Assignees."
+  },
+  {
     trigger: "#reassign:",
     display: "#reassign:<GitHub account>",
     insert: "#reassign:${CURSOR}",

@@ -59,11 +59,23 @@ A **Manifest V3 content script** that:
 3. Lets you navigate with the keyboard (Up/Down to move, Enter/Tab to insert,
    Esc to dismiss) or click to select.
 4. Inserts the chosen command in place of the partial token.
-5. Shows a green **sign-off to merge** shortcut beside GitHub's **Merging is
-  blocked** message on pull requests. The shortcut adds `#sign-off` to the
-  comment editor for review without submitting it. It is disabled after the
-  command is posted and the PR has the `ready-to-merge` label, then re-enabled
-  if that label is removed.
+5. Shows a green **sign-off to merge** shortcut directly beside GitHub's
+  **Merging is blocked** status after all required checks pass. It adds
+  `#sign-off` to the comment editor and submits it through GitHub's normal
+  **Comment** button, then immediately becomes a light-yellow **hold-off
+  merge** button in the same location. Posting `#hold-off` immediately turns
+  it back into **sign-off to merge**. On initial load, the extension finds the
+  latest posted `#sign-off` or `#hold-off` comment and displays the opposite
+  action. A newly submitted command and its next action are stored locally per
+  pull request, so the state survives a refresh until the comment appears in
+  the timeline. When no workflow comment or pending action exists, passed
+  checks display **sign-off to merge**. The button never bypasses GitHub
+  permissions or PRMerger authorization.
+6. Adds an **Assign** button beside GitHub's editable **Assignees** control.
+   Selecting it opens GitHub's native assignee picker. GitHub supplies the
+   eligible users and performs the assignment when you select a user. The
+   button is hidden when GitHub doesn't expose the assignee control for the
+   current user.
 
 Design choices:
 
@@ -189,6 +201,12 @@ button, open it and share the message.
 > Tip: Don't submit test comments on a real docs PR — commands like `#sign-off`
 > and `#please-close` trigger live automation. Just confirm the text inserts,
 > then clear the box. To test end to end, use a throwaway PR in your own repo.
+>
+> [!IMPORTANT]
+> The **sign-off to merge** and **hold-off merge** buttons submit their commands
+> immediately. If the comment editor already contains a draft, that draft is
+> submitted together with the command. Autocomplete selections remain
+> insert-only and don't submit comments.
 
 ### Step 4 (optional) — Choose where it runs
 

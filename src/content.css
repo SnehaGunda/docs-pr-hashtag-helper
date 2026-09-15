@@ -58,6 +58,23 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
+  padding: 12px 16px 0;
+}
+
+.docs-pr-hh-sign-off-row.is-next-to-checks {
+  display: inline-flex;
+  flex: 0 0 auto;
+  margin-right: 8px;
+  margin-left: auto;
+  padding: 0;
+  vertical-align: middle;
+}
+
+.docs-pr-hh-sign-off-row.is-next-to-merge-status {
+  display: inline-flex;
+  margin-left: 10px;
+  padding: 0;
+  vertical-align: middle;
 }
 
 .docs-pr-hh-sign-off-row .docs-pr-hh-sign-off {
@@ -81,6 +98,16 @@
 
 .docs-pr-hh-sign-off-row .docs-pr-hh-sign-off:hover {
   background: var(--button-primary-bgColor-hover, #1a7f37);
+}
+
+.docs-pr-hh-sign-off-row .docs-pr-hh-sign-off.is-hold-off {
+  color: #633c01;
+  background: #fff8c5;
+  border-color: #d4a72c;
+}
+
+.docs-pr-hh-sign-off-row .docs-pr-hh-sign-off.is-hold-off:hover {
+  background: #fae17d;
 }
 
 .docs-pr-hh-sign-off-row .docs-pr-hh-sign-off:disabled {
@@ -108,6 +135,176 @@
   border: 0;
 }
 
+.docs-pr-hh-assign,
+.docs-pr-hh-assign-reviewer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  margin-left: 6px;
+  padding: 1px 8px;
+  color: var(--fgColor-accent, #0969da);
+  font: 600 12px/20px -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Noto Sans", Helvetica, Arial, sans-serif;
+  letter-spacing: 0;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--borderColor-default, #d0d7de);
+  border-radius: 6px;
+}
+
+.docs-pr-hh-assign:hover,
+.docs-pr-hh-assign-reviewer:hover {
+  background: var(--bgColor-muted, #f6f8fa);
+}
+
+.docs-pr-hh-assign:focus-visible,
+.docs-pr-hh-assign-reviewer:focus-visible {
+  outline: 2px solid var(--focus-outlineColor, #0969da);
+  outline-offset: 2px;
+}
+
+.docs-pr-hh-assignment-picker {
+  position: absolute;
+  z-index: 2147483647;
+  width: min(320px, calc(100vw - 16px));
+  padding: 8px;
+  background: var(--bgColor-default, #ffffff);
+  border: 1px solid var(--borderColor-default, #d0d7de);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(31, 35, 40, 0.2);
+  color: var(--fgColor-default, #1f2328);
+  font: 13px/20px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans",
+    Helvetica, Arial, sans-serif;
+}
+
+.docs-pr-hh-assignment-picker[hidden] {
+  display: none;
+}
+
+.docs-pr-hh-user-search {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 5px 8px;
+  color: var(--fgColor-default, #1f2328);
+  font: inherit;
+  background: var(--bgColor-default, #ffffff);
+  border: 1px solid var(--borderColor-default, #d0d7de);
+  border-radius: 6px;
+  outline: none;
+}
+
+.docs-pr-hh-user-search:focus {
+  border-color: var(--focus-outlineColor, #0969da);
+  box-shadow: 0 0 0 2px var(--focus-outlineColor, #0969da);
+}
+
+.docs-pr-hh-user-list {
+  max-height: 260px;
+  margin-top: 6px;
+  overflow-y: auto;
+}
+
+.docs-pr-hh-user-option {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  color: var(--fgColor-default, #1f2328);
+  font: 600 13px/20px -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Noto Sans", Helvetica, Arial, sans-serif;
+  letter-spacing: 0;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+}
+
+.docs-pr-hh-user-option:hover,
+.docs-pr-hh-user-option:focus-visible {
+  color: var(--fgColor-onEmphasis, #ffffff);
+  background: var(--bgColor-accent-emphasis, #0969da);
+  outline: none;
+}
+
+.docs-pr-hh-user-message {
+  padding: 8px;
+  color: var(--fgColor-muted, #656d76);
+}
+
+.docs-pr-hh-unassign,
+.docs-pr-hh-unassign-reviewer {
+  margin-left: auto;
+  padding: 0;
+  color: var(--fgColor-danger, #cf222e);
+  font: 600 11px/18px -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Noto Sans", Helvetica, Arial, sans-serif;
+  letter-spacing: 0;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+}
+
+.docs-pr-hh-assignee-row,
+.docs-pr-hh-reviewer-row {
+  display: flex !important;
+  align-items: center;
+  width: 100%;
+}
+
+.docs-pr-hh-unassign:hover,
+.docs-pr-hh-unassign-reviewer:hover {
+  text-decoration: underline;
+}
+
+.docs-pr-hh-unassign:focus-visible,
+.docs-pr-hh-unassign-reviewer:focus-visible {
+  outline: 2px solid var(--focus-outlineColor, #0969da);
+  outline-offset: 2px;
+}
+
+.docs-pr-hh-assignment-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 24px;
+  margin-top: -24px;
+}
+
+.docs-pr-hh-reviewer-action-row {
+  display: flex !important;
+  align-items: center;
+  width: 100%;
+  min-height: 24px;
+}
+
+.docs-pr-hh-reviewer-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.docs-pr-hh-removing-assignee {
+  display: none !important;
+}
+
+.docs-pr-hh-removing-reviewer {
+  display: none !important;
+}
+
+.docs-pr-hh-assignment-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 @media (max-width: 543px) {
   .docs-pr-hh-sign-off-row .docs-pr-hh-sign-off {
     width: max-content;
@@ -116,6 +313,12 @@
 
 @media (prefers-color-scheme: dark) {
   .docs-pr-hh-menu {
+    background: var(--bgColor-default, #0d1117);
+    border-color: var(--borderColor-default, #30363d);
+    color: var(--fgColor-default, #e6edf3);
+  }
+  .docs-pr-hh-assignment-picker,
+  .docs-pr-hh-user-search {
     background: var(--bgColor-default, #0d1117);
     border-color: var(--borderColor-default, #30363d);
     color: var(--fgColor-default, #e6edf3);
