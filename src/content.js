@@ -613,8 +613,9 @@
       button.type = "button";
       button.className = "docs-pr-hh-unassign";
       button.dataset.username = username;
-      button.textContent = "Unassign";
-      button.title = `Post #unassign: @${username}`;
+      button.textContent = "×";
+      button.title = `Unassign @${username}`;
+      button.setAttribute("aria-label", `Unassign @${username}`);
       button.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -734,8 +735,9 @@
       button.type = "button";
       button.className = "docs-pr-hh-unassign-reviewer";
       button.dataset.username = username;
-      button.textContent = "Unassign";
-      button.title = `Post #unassign-reviewer: @${username}`;
+      button.textContent = "×";
+      button.title = `Unassign reviewer @${username}`;
+      button.setAttribute("aria-label", `Unassign reviewer @${username}`);
       button.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
