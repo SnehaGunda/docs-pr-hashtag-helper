@@ -72,7 +72,8 @@
 
 .docs-pr-hh-sign-off-row.is-next-to-merge-status {
   display: inline-flex;
-  margin-left: 10px;
+  float: right;
+  margin-left: auto;
   padding: 0;
   vertical-align: middle;
 }
