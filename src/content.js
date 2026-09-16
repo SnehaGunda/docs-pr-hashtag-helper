@@ -59,7 +59,11 @@
   /** True when the helper is allowed to run on the current repository. */
   function isActiveRepo() {
     if (!CONFIG) return true;
-    return CONFIG.isEnabledFor(settings, CONFIG.currentRepo());
+    return (
+      CONFIG.isEnabledFor(settings, CONFIG.currentRepo()) &&
+      isPullRequestPage() &&
+      hasPRMergerLabel()
+    );
   }
 
   /**
@@ -1085,12 +1089,19 @@
   }
 
   function hasReadyToMergeLabel() {
-    const labels = document.querySelectorAll(
-      ".IssueLabel, [data-testid='issue-label'], a[href*='/labels/']"
+    return currentPullRequestLabels().some(
+      (label) => label.toLowerCase() === "ready-to-merge"
     );
-    return Array.from(labels).some(
-      (label) => label.textContent.trim().toLowerCase() === "ready-to-merge"
-    );
+  }
+
+  function currentPullRequestLabels() {
+    const section = labelsSection();
+    if (!section) return [];
+    return visibleLabels(section).map(({ name }) => name);
+  }
+
+  function hasPRMergerLabel() {
+    return WORKFLOW.hasPRMergerLabel(currentPullRequestLabels());
   }
 
   function currentPullRequestKey() {

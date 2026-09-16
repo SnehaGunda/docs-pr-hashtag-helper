@@ -6,8 +6,8 @@ autocomplete dropdown for **Microsoft Learn pull-request hashtag comments** on
 GitHub. When you type `#` in a PR comment box, the supported commands appear in a
 filterable menu so you can pick the right one without memorizing them.
 
-Works on any `github.com` repository, including `MicrosoftDocs/fabric-docs-pr`,
-`MicrosoftDocs/powerbi-docs-pr`, and other Microsoft Docs repos.
+Works on GitHub pull requests where PR Merger exposes either the
+`do-not-merge` or `ready-to-merge` label.
 
 ## Problem statement
 
@@ -52,7 +52,7 @@ placed where you type the value — for example `#label:"|"` or `#assign:|`.
 
 A **Manifest V3 content script** that:
 
-1. Detects GitHub comment text areas on PR pages (new comment box, review
+1. Detects GitHub comment text areas on eligible PR pages (new comment box, review
    comments, and edit boxes).
 2. Watches what you type. When the token under the caret starts with `#`, it
    shows a positioned dropdown filtered against the supported commands.
@@ -98,17 +98,18 @@ Design choices:
 - **Data-driven.** The command list lives in `src/commands.js`, so updating it
   when the docs change is a one-file edit.
 
-## Scalable for any contributor and any repo
+## Scalable for any contributor and eligible repo
 
 The helper is built to be shared across the whole Microsoft Docs contributor
 community, not hardwired to one repo:
 
-- **Universal by default.** It runs on every `github.com` repository, so it works
-  on `fabric-docs-pr`, `powerbi-docs-pr`, `azure-docs-pr`, `dotnet/docs`, and any
-  other repo that uses the same comment automation.
+- **Label-gated.** It runs only when the current pull request has a
+  `do-not-merge` or `ready-to-merge` label. If PR Merger adds the initial label
+  shortly after the page opens, the extension detects the page update and
+  enables itself without a reload.
 - **Configurable scope.** An options page (`storage`-backed and roaming via
   `chrome.storage.sync`) lets each person choose:
-  - **All GitHub repositories** (default), or
+  - **All eligible GitHub repositories** (default), or
   - **Only specific orgs or repos** — an allowlist such as `MicrosoftDocs` or
     `MicrosoftDocs/fabric-docs-pr`, one entry per line.
 - **SPA-safe gating.** GitHub navigates between repos without full reloads, so
@@ -204,7 +205,7 @@ button, open it and share the message.
 
 ### Step 3 — Try it
 
-1. Open any GitHub pull request or issue.
+1. Open a GitHub pull request with a `do-not-merge` or `ready-to-merge` label.
 2. Click into a comment box (the **Write** tab, not **Preview**).
 3. Type `#`. A dropdown of the supported commands appears.
 4. Filter by typing (for example `#sign`), move with the Up/Down arrow keys, and
@@ -224,8 +225,8 @@ button, open it and share the message.
 
 1. On the extensions page, select **Details** on the card, then **Extension
    options**.
-2. Choose **All GitHub repositories** (default) or **Only specific orgs or
-   repositories** and list entries like `MicrosoftDocs` or
+2. Choose **All eligible GitHub repositories** (default) or **Only specific
+  orgs or repositories** and list entries like `MicrosoftDocs` or
    `MicrosoftDocs/fabric-docs-pr`.
 3. Select **Save**.
 
