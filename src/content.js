@@ -393,7 +393,9 @@
 
   function repositoryLabelNames(result) {
     const labels = new Map();
-    result.querySelectorAll(".IssueLabel").forEach((label) => {
+    result
+      .querySelectorAll(".IssueLabel, main [role='listitem'] h3")
+      .forEach((label) => {
         const name = (label.getAttribute("data-name") || label.textContent).trim();
         const key = name.toLowerCase();
         if (!name || name.length > 200 || labels.has(key)) return;
@@ -491,7 +493,11 @@
       }
       const html = await response.text();
       const result = new DOMParser().parseFromString(html, "text/html");
-      repositoryLabels = repositoryLabelNames(result);
+      const labels = repositoryLabelNames(result);
+      if (labels.length === 0) {
+        throw new Error("GitHub labels page contained no recognizable labels");
+      }
+      repositoryLabels = labels;
       loadedRepositoryLabelsKey = key;
     } catch (error) {
       console.warn("[Docs PR Hashtag Helper] Could not load labels", error);

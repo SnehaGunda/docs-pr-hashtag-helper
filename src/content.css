@@ -472,6 +472,9 @@
 }
 
 .docs-pr-hh-label-row {
+  align-self: flex-start;
+  flex: 0 0 auto;
+  width: fit-content;
   max-width: 100%;
   margin: 0 4px 4px 0;
   padding: 0 2px 0 7px;
