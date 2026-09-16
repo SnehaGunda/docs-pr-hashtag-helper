@@ -1644,6 +1644,23 @@
     return true;
   }
 
+  function hasNativeReopenButton() {
+    return Array.from(document.querySelectorAll("button, [role='button']")).some(
+      (button) => {
+        if (
+          button.closest(".docs-pr-hh-sign-off-row") ||
+          button.hidden ||
+          !button.offsetParent
+        ) {
+          return false;
+        }
+        return WORKFLOW.isReopenControlLabel(
+          button.textContent || button.getAttribute("aria-label")
+        );
+      }
+    );
+  }
+
   function syncSignOffButton() {
     signOffSyncQueued = false;
     const existing = document.querySelector(".docs-pr-hh-sign-off");
@@ -1670,6 +1687,10 @@
       return;
     }
     if (closureState === "closed") {
+      if (hasNativeReopenButton()) {
+        if (existing) existing.closest(".docs-pr-hh-sign-off-row").remove();
+        return;
+      }
       if (existing) {
         updateReopenButtonState(existing);
         placeReopenButtonRow(existing.closest(".docs-pr-hh-sign-off-row"));

@@ -6,6 +6,7 @@ const {
   shouldShowWorkflowButton,
   isPassedChecksText,
   isClosedUnmergedText,
+  isReopenControlLabel,
   isAssigneeControlLabel,
   assignmentCommand,
   isLearnBuildBot,
@@ -86,6 +87,14 @@ test("recognizes closed unmerged pull requests without matching merged ones", ()
   assert.equal(isClosedUnmergedText("Merged and closed"), false);
   assert.equal(isClosedUnmergedText("This pull request was merged"), false);
   assert.equal(isClosedUnmergedText("Open"), false);
+});
+
+test("recognizes native GitHub reopen controls without matching status text", () => {
+  assert.equal(isReopenControlLabel("Reopen"), true);
+  assert.equal(isReopenControlLabel("Reopen pull request"), true);
+  assert.equal(isReopenControlLabel(" REOPEN PULL REQUEST "), true);
+  assert.equal(isReopenControlLabel("Reopen requested"), false);
+  assert.equal(isReopenControlLabel("This pull request is closed"), false);
 });
 
 test("recognizes native GitHub assignee controls", () => {
