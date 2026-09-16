@@ -394,14 +394,29 @@
   function repositoryLabelNames(result) {
     const labels = new Map();
     result
-      .querySelectorAll(".IssueLabel, main [role='listitem'] h3")
+      .querySelectorAll(
+        ".IssueLabel, main [role='listitem'] h3, input[data-label-name]"
+      )
       .forEach((label) => {
-        const name = (label.getAttribute("data-name") || label.textContent).trim();
+        const name = (
+          label.getAttribute("data-label-name") ||
+          label.getAttribute("data-name") ||
+          label.textContent
+        ).trim();
         const key = name.toLowerCase();
         if (!name || name.length > 200 || labels.has(key)) return;
         labels.set(key, name);
       });
     return Array.from(labels.values());
+  }
+
+  function repositoryLabelsUrl(repo) {
+    return (
+      labelsSection()?.querySelector(
+        "details-menu[src*='labels_menu_content']"
+      )?.getAttribute("src") ||
+      `/${repo.owner}/${repo.repo}/labels?sort=name-asc&per_page=100`
+    );
   }
 
   function labelPickerMessage(message) {
@@ -484,10 +499,9 @@
     repositoryLabels = currentPullRequestLabels();
     labelPickerMessage("Loading repository labels...");
     try {
-      const response = await fetch(
-        `/${repo.owner}/${repo.repo}/labels?sort=name-asc&per_page=100`,
-        { credentials: "same-origin" }
-      );
+      const response = await fetch(repositoryLabelsUrl(repo), {
+        credentials: "same-origin"
+      });
       if (!response.ok) {
         throw new Error(`GitHub labels returned ${response.status}`);
       }
