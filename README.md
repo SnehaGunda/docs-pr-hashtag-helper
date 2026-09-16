@@ -1,26 +1,18 @@
 # Docs PR Hashtag Helper
 
 A lightweight browser extension for Microsoft Edge, Google Chrome, and Mozilla
-Firefox that adds an
-autocomplete dropdown for **Microsoft Learn pull-request hashtag comments** on
-GitHub. When you type `#` in a PR comment box, the supported commands appear in a
-filterable menu so you can pick the right one without memorizing them.
-
-Works on any `github.com` repository, including `MicrosoftDocs/fabric-docs-pr`,
-`MicrosoftDocs/powerbi-docs-pr`, and other Microsoft Docs repos.
+Firefox that adds ease-of-use capabilities for pull requests in repos that use the PRMerger app.
 
 ## Problem statement
 
-Microsoft Docs repos use **comment automation**: contributors type special
+Many MicrosoftDocs repos use **comment automation**: contributors type special
 hashtag comments in a GitHub PR to trigger label changes and state transitions
 (sign off, hold, close, reopen). The commands are documented at
-[Process a pull request — Sign-off and comment automation](https://learn.microsoft.com/contribute/content/process-pull-request#sign-off-and-comment-automation),
-but:
+[Process a pull request — Sign-off and comment automation](https://learn.microsoft.com/contribute/content/process-pull-request#sign-off-and-comment-automation), but:
 
 - They're easy to forget or misspell (`#sign-off` vs `#signoff`).
-- You have to leave the PR to look them up.
-- A wrong command doesn't trigger the intended automation, which slows down
-  merges.
+- Discoverability: you have to leave the PR to look them up.
+- A wrong command doesn't trigger the intended automation, which slows down merges.
 
 There's no native GitHub autocomplete for these commands (GitHub only
 autocompletes `@mentions`, `#issues`, and `:emoji:`).
@@ -43,27 +35,17 @@ automation.
 | `#assign-reviewer:<GitHub account>` | Adds a GitHub account to **Reviewers**. The account must be a valid contributor in the repo. | Public and private |
 | `#unassign-reviewer:<GitHub account>` | Removes a GitHub account from **Reviewers**. | Public and private |
 
-Commands that take an argument (labels and accounts) are inserted with the caret
-placed where you type the value — for example `#label:"|"` or `#assign:|`.
-
 > Source: <https://learn.microsoft.com/contribute/content/process-pull-request#sign-off-and-comment-automation>
 
 ## Solution approach
 
 A **Manifest V3 content script** that:
 
-1. Detects GitHub comment text areas on PR pages (new comment box, review
-   comments, and edit boxes).
-2. Watches what you type. When the token under the caret starts with `#`, it
-   shows a positioned dropdown filtered against the supported commands.
-3. Lets you navigate with the keyboard (Up/Down to move, Enter/Tab to insert,
-   Esc to dismiss) or click to select.
-4. Inserts the chosen command in place of the partial token.
-5. Shows a green **sign-off to merge** shortcut directly beside GitHub's
-  **Merging is blocked** status after all required checks pass. It adds
+1. Shows a green **sign-off to merge** shortcut directly beside GitHub's
+  **Merging is blocked** status after all required checks pass. The button adds
   `#sign-off` to the comment editor and submits it through GitHub's normal
   **Comment** button, then immediately becomes a light-yellow **hold-off
-  merge** button in the same location. Posting `#hold-off` immediately turns
+  merge** button in the same location. Selecting `#hold-off` immediately turns
   it back into **sign-off to merge**. On initial load, the extension finds the
   latest posted `#sign-off` or `#hold-off` comment and displays the opposite
   action. A newly submitted command and its next action are stored locally per
@@ -71,17 +53,17 @@ A **Manifest V3 content script** that:
   the timeline. When no workflow comment or pending action exists, passed
   checks display **sign-off to merge**. The button never bypasses GitHub
   permissions or PRMerger authorization.
-6. Shows **reopen pull request** immediately before GitHub's **Comment** button
+2. Shows **reopen pull request** immediately before GitHub's **Comment** button
   when a pull request is closed without being merged. Selecting it posts
   `#please-open` through GitHub's normal comment workflow. Merged pull requests
   never show the reopen control.
-7. Adds **Assign** controls beside **Assignees** and **Reviewers**. Entering a
+3. Adds **Assign** controls beside **Assignees** and **Reviewers**. Entering a
   search term displays matching GitHub accounts with their avatar, public full
   name when available, and username. Selecting an account posts the
   corresponding `#assign` or `#assign-reviewer` PRMerger comment. Compact
   remove buttons beside people post `#unassign` or `#unassign-reviewer`
   comments.
-8. Adds an **Add** control beside **Labels**. Entering a custom label posts
+4. Adds an **Add** control beside **Labels**. Entering a custom label posts
   `#label:"label name"`; the remove button appears only beside custom labels
   added through the extension and posts `#remove-label:"label name"`.
   Predefined repository labels never receive a remove control. Pending changes
@@ -98,17 +80,16 @@ Design choices:
 - **Data-driven.** The command list lives in `src/commands.js`, so updating it
   when the docs change is a one-file edit.
 
-## Scalable for any contributor and any repo
+## Scalable for any contributor and eligible repo
 
-The helper is built to be shared across the whole Microsoft Docs contributor
+The helper is built to be shared across the whole MicrosoftDocs contributor
 community, not hardwired to one repo:
 
-- **Universal by default.** It runs on every `github.com` repository, so it works
-  on `fabric-docs-pr`, `powerbi-docs-pr`, `azure-docs-pr`, `dotnet/docs`, and any
-  other repo that uses the same comment automation.
+- **Label-gated.** It runs only when the current pull request has a
+  `do-not-merge` or `ready-to-merge` label.
 - **Configurable scope.** An options page (`storage`-backed and roaming via
   `chrome.storage.sync`) lets each person choose:
-  - **All GitHub repositories** (default), or
+  - **All eligible GitHub repositories** (default), or
   - **Only specific orgs or repos** — an allowlist such as `MicrosoftDocs` or
     `MicrosoftDocs/fabric-docs-pr`, one entry per line.
 - **SPA-safe gating.** GitHub navigates between repos without full reloads, so
@@ -204,28 +185,16 @@ button, open it and share the message.
 
 ### Step 3 — Try it
 
-1. Open any GitHub pull request or issue.
-2. Click into a comment box (the **Write** tab, not **Preview**).
-3. Type `#`. A dropdown of the supported commands appears.
-4. Filter by typing (for example `#sign`), move with the Up/Down arrow keys, and
-   press **Enter** or **Tab** to insert. Press **Esc** to dismiss.
-
-> Tip: Don't submit test comments on a real docs PR — commands like `#sign-off`
-> and `#please-close` trigger live automation. Just confirm the text inserts,
-> then clear the box. To test end to end, use a throwaway PR in your own repo.
->
-> [!IMPORTANT]
-> The **sign-off to merge** and **hold-off merge** buttons submit their commands
-> immediately. If the comment editor already contains a draft, that draft is
-> submitted together with the command. Autocomplete selections remain
-> insert-only and don't submit comments.
+1. Open a GitHub pull request on a repo that uses the PRMerger app.
+1. Looks for the **Assign** and **Add** buttons and try them out.
+1. If the status checks have passed, look for the **Sign-off to merge** button and, if you're ready to actually sign off on the PR, select it.
 
 ### Step 4 (optional) — Choose where it runs
 
 1. On the extensions page, select **Details** on the card, then **Extension
    options**.
-2. Choose **All GitHub repositories** (default) or **Only specific orgs or
-   repositories** and list entries like `MicrosoftDocs` or
+2. Choose **All eligible GitHub repositories** (default) or **Only specific
+  orgs or repositories** and list entries like `MicrosoftDocs` or
    `MicrosoftDocs/fabric-docs-pr`.
 3. Select **Save**.
 

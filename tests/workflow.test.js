@@ -9,6 +9,7 @@ const {
   isAssigneeControlLabel,
   assignmentCommand,
   isLearnBuildBot,
+  hasPRMergerLabel,
   labelCommand,
   nextWorkflowCommand,
   commandForLatestComment,
@@ -133,4 +134,11 @@ test("formats custom label automation commands", () => {
   assert.equal(labelCommand("label", 'bad"label'), null);
   assert.equal(labelCommand("remove", "needs review"), null);
   assert.equal(labelCommand("label", "x".repeat(201)), null);
+});
+
+test("recognizes PRMerger repository labels", () => {
+  assert.equal(hasPRMergerLabel(["do-not-merge"]), true);
+  assert.equal(hasPRMergerLabel(["Ready-To-Merge"]), true);
+  assert.equal(hasPRMergerLabel(["documentation", "triage"]), false);
+  assert.equal(hasPRMergerLabel([]), false);
 });

@@ -59,6 +59,14 @@
     );
   }
 
+  function hasPRMergerLabel(labels) {
+    return Array.from(labels || []).some((label) =>
+      ["do-not-merge", "ready-to-merge"].includes(
+        String(label || "").trim().toLowerCase()
+      )
+    );
+  }
+
   function labelCommand(action, label) {
     const name = String(label || "").trim();
     if (
@@ -107,6 +115,7 @@
     isAssigneeControlLabel,
     assignmentCommand,
     isLearnBuildBot,
+    hasPRMergerLabel,
     labelCommand,
     nextWorkflowCommand,
     commandForLatestComment,

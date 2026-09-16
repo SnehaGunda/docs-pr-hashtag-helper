@@ -10,8 +10,9 @@
     <main class="wrap">
       <h1>Docs PR Hashtag Helper</h1>
       <p class="lede">
-        Choose where the hashtag autocomplete runs. The commands appear whenever
-        you type <code>#</code> in a GitHub pull request or issue comment box.
+        Choose where the extension runs. On matching pull requests,
+        it activates when the <code>do-not-merge</code> or
+        <code>ready-to-merge</code> label is present.
       </p>
 
       <form id="settings-form">
@@ -21,8 +22,8 @@
           <label class="option">
             <input type="radio" name="mode" value="all" />
             <span>
-              <strong>All GitHub repositories</strong>
-              <small>Works everywhere on github.com. Recommended.</small>
+              <strong>All eligible GitHub repositories</strong>
+              <small>Runs on pull requests with a PRMerger-specific label.</small>
             </span>
           </label>
 

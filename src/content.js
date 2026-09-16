@@ -35,6 +35,7 @@
   let labelPicker = null;
   let loadedLabelKey = null;
   let loadingLabelKey = null;
+  let lastEligibilityLog = null;
   const pendingAssignedUsers = new Map();
   const pendingUnassignedUsers = new Set();
   const pendingReviewers = new Map();
@@ -58,8 +59,50 @@
 
   /** True when the helper is allowed to run on the current repository. */
   function isActiveRepo() {
-    if (!CONFIG) return true;
-    return CONFIG.isEnabledFor(settings, CONFIG.currentRepo());
+    if (!CONFIG) {
+      const decision = {
+        enabled: true,
+        reason: "configuration unavailable; failing open",
+        repository: null,
+        path: window.location.pathname,
+        labels: []
+      };
+      const serializedDecision = JSON.stringify(decision);
+      if (serializedDecision !== lastEligibilityLog) {
+        console.info("[Docs PR Hashtag Helper] Eligibility", decision);
+        lastEligibilityLog = serializedDecision;
+      }
+      return true;
+    }
+
+    const repo = CONFIG && CONFIG.currentRepo();
+    const scopeEnabled = CONFIG.isEnabledFor(settings, repo);
+    const pullRequestPage = isPullRequestPage();
+    const labels = pullRequestPage ? currentPullRequestLabels() : [];
+    const prMergerLabelPresent = WORKFLOW.hasPRMergerLabel(labels);
+    const enabled = scopeEnabled && pullRequestPage && prMergerLabelPresent;
+    const reason = !scopeEnabled
+      ? "repository excluded by settings"
+      : !pullRequestPage
+        ? "not a pull request page"
+        : !prMergerLabelPresent
+          ? "PRMerger label not present"
+          : "eligible pull request";
+    const decision = {
+      enabled,
+      reason,
+      repository: repo ? repo.full : null,
+      path: window.location.pathname,
+      labels: labels.filter((label) =>
+        ["do-not-merge", "ready-to-merge"].includes(label.toLowerCase())
+      )
+    };
+    const serializedDecision = JSON.stringify(decision);
+    if (serializedDecision !== lastEligibilityLog) {
+      console.info("[Docs PR Hashtag Helper] Eligibility", decision);
+      lastEligibilityLog = serializedDecision;
+    }
+    return enabled;
   }
 
   /**
@@ -1085,12 +1128,19 @@
   }
 
   function hasReadyToMergeLabel() {
-    const labels = document.querySelectorAll(
-      ".IssueLabel, [data-testid='issue-label'], a[href*='/labels/']"
+    return currentPullRequestLabels().some(
+      (label) => label.toLowerCase() === "ready-to-merge"
     );
-    return Array.from(labels).some(
-      (label) => label.textContent.trim().toLowerCase() === "ready-to-merge"
-    );
+  }
+
+  function currentPullRequestLabels() {
+    const section = labelsSection();
+    if (!section) return [];
+    return visibleLabels(section).map(({ name }) => name);
+  }
+
+  function hasPRMergerLabel() {
+    return WORKFLOW.hasPRMergerLabel(currentPullRequestLabels());
   }
 
   function currentPullRequestKey() {
