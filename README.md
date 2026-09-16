@@ -64,12 +64,16 @@ A **Manifest V3 content script** that:
   corresponding `#assign` or `#assign-reviewer` PRMerger comment. Compact
   remove buttons beside people post `#unassign` or `#unassign-reviewer`
   comments.
-4. Adds an **Add** control beside **Labels**. Entering a custom label posts
-  `#label:"label name"`; the remove button appears only beside custom labels
-  added through the extension and posts `#remove-label:"label name"`.
-  Predefined repository labels never receive a remove control. Pending changes
-  appear immediately and are stored locally per pull request until GitHub
-  reflects the update.
+4. Adds an **Add** control beside **Labels**. The picker suggests existing
+  repository labels while keeping free-form custom label entry available.
+  Selecting a suggestion or adding a custom label posts `#label:"label name"`.
+  A live character count explains the 200-character limit before submission.
+  The remove button appears only beside labels added through the extension and
+  posts `#remove-label:"label name"`. The picker explains that predefined
+  repository labels must be removed with GitHub's **Labels** control because
+  the extension doesn't track who added them. Pending changes appear
+  immediately and are stored locally per pull request until GitHub reflects
+  the update.
 
 Design choices:
 

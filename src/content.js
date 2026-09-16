@@ -33,6 +33,9 @@
   let loadedReviewerKey = null;
   let loadingReviewerKey = null;
   let labelPicker = null;
+  let repositoryLabels = [];
+  let loadedRepositoryLabelsKey = null;
+  let loadingRepositoryLabelsKey = null;
   let loadedLabelKey = null;
   let loadingLabelKey = null;
   let lastEligibilityLog = null;
@@ -388,20 +391,139 @@
     if (labelPicker) labelPicker.hidden = true;
   }
 
+  function repositoryLabelNames(result) {
+    const labels = new Map();
+    result.querySelectorAll(".IssueLabel").forEach((label) => {
+        const name = (label.getAttribute("data-name") || label.textContent).trim();
+        const key = name.toLowerCase();
+        if (!name || name.length > 200 || labels.has(key)) return;
+        labels.set(key, name);
+      });
+    return Array.from(labels.values());
+  }
+
+  function labelPickerMessage(message) {
+    const list = labelPicker.querySelector(".docs-pr-hh-label-suggestions");
+    list.replaceChildren();
+    const item = document.createElement("div");
+    item.className = "docs-pr-hh-label-message";
+    item.textContent = message;
+    list.appendChild(item);
+  }
+
+  function submitLabelFromPicker(label) {
+    hideLabelPicker();
+    postLabelCommand(
+      document.querySelector(".docs-pr-hh-add-label"),
+      "label",
+      label
+    );
+    const input = labelPicker.querySelector(".docs-pr-hh-label-input");
+    input.value = "";
+    updateLabelPicker();
+  }
+
+  function renderLabelSuggestions() {
+    if (!labelPicker) return;
+    const input = labelPicker.querySelector(".docs-pr-hh-label-input");
+    const suggestions = WORKFLOW.filterLabelSuggestions(
+      repositoryLabels,
+      input.value,
+      currentPullRequestLabels().concat(Array.from(pendingAddedLabels.values()))
+    );
+    const list = labelPicker.querySelector(".docs-pr-hh-label-suggestions");
+    list.replaceChildren();
+    if (suggestions.length === 0) {
+      labelPickerMessage(
+        input.value.trim()
+          ? "No matching repository labels. You can add this as a custom label."
+          : "No repository labels available. You can still add a custom label."
+      );
+      return;
+    }
+    suggestions.forEach((name) => {
+      const option = document.createElement("button");
+      option.type = "button";
+      option.className = "docs-pr-hh-label-option";
+      option.setAttribute("role", "option");
+      option.textContent = name;
+      option.title = `Add repository label ${name}`;
+      option.addEventListener("click", () => submitLabelFromPicker(name));
+      list.appendChild(option);
+    });
+  }
+
+  function updateLabelPicker() {
+    if (!labelPicker) return;
+    const input = labelPicker.querySelector(".docs-pr-hh-label-input");
+    const submit = labelPicker.querySelector(".docs-pr-hh-label-submit");
+    const counter = labelPicker.querySelector(".docs-pr-hh-label-count");
+    const error = labelPicker.querySelector(".docs-pr-hh-label-error");
+    const validation = WORKFLOW.labelInputValidation(input.value);
+    const showError = input.value.length > 0 && !validation.valid;
+    input.setCustomValidity(showError ? validation.message : "");
+    input.setAttribute("aria-invalid", String(showError));
+    submit.disabled = !validation.valid;
+    counter.textContent = `${validation.count} / 200`;
+    counter.classList.toggle("is-invalid", validation.count > 200);
+    error.textContent = showError ? validation.message : "";
+    renderLabelSuggestions();
+  }
+
+  async function loadRepositoryLabels() {
+    const repo = CONFIG && CONFIG.currentRepo();
+    if (!repo) return;
+    const key = repo.full.toLowerCase();
+    if (loadedRepositoryLabelsKey === key || loadingRepositoryLabelsKey === key) {
+      renderLabelSuggestions();
+      return;
+    }
+    loadingRepositoryLabelsKey = key;
+    repositoryLabels = currentPullRequestLabels();
+    labelPickerMessage("Loading repository labels...");
+    try {
+      const response = await fetch(
+        `/${repo.owner}/${repo.repo}/labels?sort=name-asc&per_page=100`,
+        { credentials: "same-origin" }
+      );
+      if (!response.ok) {
+        throw new Error(`GitHub labels returned ${response.status}`);
+      }
+      const html = await response.text();
+      const result = new DOMParser().parseFromString(html, "text/html");
+      repositoryLabels = repositoryLabelNames(result);
+      loadedRepositoryLabelsKey = key;
+    } catch (error) {
+      console.warn("[Docs PR Hashtag Helper] Could not load labels", error);
+    } finally {
+      if (loadingRepositoryLabelsKey === key) loadingRepositoryLabelsKey = null;
+      if (!labelPicker.hidden && CONFIG.currentRepo()?.full.toLowerCase() === key) {
+        renderLabelSuggestions();
+      }
+    }
+  }
+
   function getLabelPicker() {
     if (labelPicker) return labelPicker;
     labelPicker = document.createElement("div");
     labelPicker.className = "docs-pr-hh-label-picker";
     labelPicker.hidden = true;
     labelPicker.setAttribute("role", "dialog");
-    labelPicker.setAttribute("aria-label", "Add a custom label");
+    labelPicker.setAttribute("aria-label", "Add a label");
+
+    const inputRow = document.createElement("div");
+    inputRow.className = "docs-pr-hh-label-input-row";
 
     const input = document.createElement("input");
     input.type = "text";
     input.className = "docs-pr-hh-label-input";
-    input.placeholder = "Custom label name";
-    input.maxLength = 200;
-    input.setAttribute("aria-label", "Custom label name");
+    input.placeholder = "Search or enter a custom label";
+    input.setAttribute("aria-label", "Search or enter a custom label");
+    input.setAttribute(
+      "aria-describedby",
+      "docs-pr-hh-label-count docs-pr-hh-label-error"
+    );
+    input.addEventListener("input", updateLabelPicker);
     input.addEventListener("keydown", (event) => {
       if (event.key === "Escape") hideLabelPicker();
       if (event.key === "Enter") {
@@ -409,34 +531,55 @@
         labelPicker.querySelector(".docs-pr-hh-label-submit").click();
       }
     });
-    labelPicker.appendChild(input);
+    inputRow.appendChild(input);
 
     const submit = document.createElement("button");
     submit.type = "button";
     submit.className = "docs-pr-hh-label-submit";
-    submit.textContent = "Add";
+    submit.textContent = "Add custom";
     submit.addEventListener("click", () => {
       const label = input.value.trim();
-      if (!WORKFLOW.labelCommand("label", label)) {
-        input.setCustomValidity(
-          label
-            ? "Label names cannot contain quotes or new lines."
-            : "Enter a label name."
-        );
+      const validation = WORKFLOW.labelInputValidation(input.value);
+      if (!validation.valid) {
+        input.setCustomValidity(validation.message);
         input.reportValidity();
         return;
       }
       input.setCustomValidity("");
-      hideLabelPicker();
-      postLabelCommand(
-        document.querySelector(".docs-pr-hh-add-label"),
-        "label",
-        label
-      );
-      input.value = "";
+      submitLabelFromPicker(label);
     });
-    labelPicker.appendChild(submit);
+    inputRow.appendChild(submit);
+    labelPicker.appendChild(inputRow);
+
+    const feedback = document.createElement("div");
+    feedback.className = "docs-pr-hh-label-feedback";
+    const error = document.createElement("span");
+    error.id = "docs-pr-hh-label-error";
+    error.className = "docs-pr-hh-label-error";
+    error.setAttribute("aria-live", "polite");
+    feedback.appendChild(error);
+    const counter = document.createElement("span");
+    counter.id = "docs-pr-hh-label-count";
+    counter.className = "docs-pr-hh-label-count";
+    feedback.appendChild(counter);
+    labelPicker.appendChild(feedback);
+
+    const heading = document.createElement("div");
+    heading.className = "docs-pr-hh-label-suggestions-heading";
+    heading.textContent = "Repository labels";
+    labelPicker.appendChild(heading);
+    const suggestions = document.createElement("div");
+    suggestions.className = "docs-pr-hh-label-suggestions";
+    suggestions.setAttribute("role", "listbox");
+    labelPicker.appendChild(suggestions);
+
+    const note = document.createElement("p");
+    note.className = "docs-pr-hh-label-note";
+    note.textContent =
+      "Predefined repository labels cannot be removed here because the extension only tracks labels it added with PRMerger comments. Use GitHub's Labels control to remove them.";
+    labelPicker.appendChild(note);
     document.body.appendChild(labelPicker);
+    updateLabelPicker();
     return labelPicker;
   }
 
@@ -454,6 +597,8 @@
     picker.hidden = false;
     const input = picker.querySelector(".docs-pr-hh-label-input");
     input.setCustomValidity("");
+    updateLabelPicker();
+    loadRepositoryLabels();
     input.focus();
   }
 

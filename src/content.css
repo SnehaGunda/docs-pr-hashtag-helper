@@ -198,6 +198,7 @@
   position: absolute;
   z-index: 2147483647;
   display: flex;
+  flex-direction: column;
   gap: 6px;
   width: min(320px, calc(100vw - 16px));
   padding: 8px;
@@ -212,6 +213,11 @@
 
 .docs-pr-hh-label-picker[hidden] {
   display: none;
+}
+
+.docs-pr-hh-label-input-row {
+  display: flex;
+  gap: 6px;
 }
 
 .docs-pr-hh-label-input {
@@ -232,6 +238,11 @@
   box-shadow: 0 0 0 2px var(--focus-outlineColor, #0969da);
 }
 
+.docs-pr-hh-label-input[aria-invalid="true"] {
+  border-color: var(--borderColor-danger-emphasis, #cf222e);
+  box-shadow: 0 0 0 1px var(--borderColor-danger-emphasis, #cf222e);
+}
+
 .docs-pr-hh-label-submit {
   flex: 0 0 auto;
   padding: 5px 10px;
@@ -243,6 +254,84 @@
   background: var(--bgColor-accent-emphasis, #0969da);
   border: 1px solid transparent;
   border-radius: 6px;
+}
+
+.docs-pr-hh-label-submit:disabled {
+  color: var(--button-primary-fgColor-disabled, rgba(255, 255, 255, 0.8));
+  cursor: not-allowed;
+  background: var(--button-primary-bgColor-disabled, #94d3a2);
+}
+
+.docs-pr-hh-label-feedback {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 18px;
+  color: var(--fgColor-muted, #656d76);
+  font-size: 12px;
+}
+
+.docs-pr-hh-label-error {
+  color: var(--fgColor-danger, #cf222e);
+}
+
+.docs-pr-hh-label-count {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.docs-pr-hh-label-count.is-invalid {
+  color: var(--fgColor-danger, #cf222e);
+  font-weight: 600;
+}
+
+.docs-pr-hh-label-suggestions-heading {
+  color: var(--fgColor-muted, #656d76);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.docs-pr-hh-label-suggestions {
+  max-height: 192px;
+  overflow-y: auto;
+}
+
+.docs-pr-hh-label-option {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  overflow: hidden;
+  color: var(--fgColor-default, #1f2328);
+  font: inherit;
+  letter-spacing: 0;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+}
+
+.docs-pr-hh-label-option:hover,
+.docs-pr-hh-label-option:focus-visible {
+  color: var(--fgColor-onEmphasis, #ffffff);
+  background: var(--bgColor-accent-emphasis, #0969da);
+  outline: none;
+}
+
+.docs-pr-hh-label-message {
+  padding: 6px 8px;
+  color: var(--fgColor-muted, #656d76);
+}
+
+.docs-pr-hh-label-note {
+  margin: 2px 0 0;
+  padding-top: 8px;
+  color: var(--fgColor-muted, #656d76);
+  font-size: 12px;
+  line-height: 18px;
+  border-top: 1px solid var(--borderColor-muted, #d8dee4);
 }
 
 .docs-pr-hh-user-search {

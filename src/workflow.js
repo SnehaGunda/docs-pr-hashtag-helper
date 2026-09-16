@@ -84,6 +84,53 @@
     return `#${action}:"${name}"`;
   }
 
+  function labelInputValidation(label) {
+    const name = String(label || "").trim();
+    const count = name.length;
+    if (!name) {
+      return { valid: false, count, message: "Enter a label name." };
+    }
+    if (count > 200) {
+      return {
+        valid: false,
+        count,
+        message: `Label names can contain up to 200 characters (${count - 200} over).`
+      };
+    }
+    if (/[\r\n"]/.test(name)) {
+      return {
+        valid: false,
+        count,
+        message: "Label names cannot contain quotes or new lines."
+      };
+    }
+    return { valid: true, count, message: "" };
+  }
+
+  function filterLabelSuggestions(labels, query, excludedLabels = [], limit = 8) {
+    const search = String(query || "").trim().toLowerCase();
+    const excluded = new Set(
+      Array.from(excludedLabels || [], (label) =>
+        String(label || "").trim().toLowerCase()
+      )
+    );
+    const unique = new Map();
+    Array.from(labels || []).forEach((label) => {
+      const name = String(label || "").trim();
+      const key = name.toLowerCase();
+      if (!name || excluded.has(key) || unique.has(key)) return;
+      if (!search || key.includes(search)) unique.set(key, name);
+    });
+    return Array.from(unique.values())
+      .sort((left, right) => {
+        const leftStarts = left.toLowerCase().startsWith(search);
+        const rightStarts = right.toLowerCase().startsWith(search);
+        if (leftStarts !== rightStarts) return leftStarts ? -1 : 1;
+        return left.localeCompare(right, undefined, { sensitivity: "base" });
+      })
+      .slice(0, Math.max(0, limit));
+  }
+
   function nextWorkflowCommand(command) {
     return command === "#sign-off" ? "#hold-off" : "#sign-off";
   }
@@ -122,6 +169,8 @@
     isLearnBuildBot,
     hasPRMergerLabel,
     labelCommand,
+    labelInputValidation,
+    filterLabelSuggestions,
     nextWorkflowCommand,
     commandForLatestComment,
     latestWorkflowCommand,
