@@ -86,7 +86,7 @@
       : !pullRequestPage
         ? "not a pull request page"
         : !prMergerLabelPresent
-          ? "PR Merger label not present"
+          ? "PRMerger label not present"
           : "eligible pull request";
     const decision = {
       enabled,

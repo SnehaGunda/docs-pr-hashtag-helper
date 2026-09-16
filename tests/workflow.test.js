@@ -136,7 +136,7 @@ test("formats custom label automation commands", () => {
   assert.equal(labelCommand("label", "x".repeat(201)), null);
 });
 
-test("recognizes PR Merger repository labels", () => {
+test("recognizes PRMerger repository labels", () => {
   assert.equal(hasPRMergerLabel(["do-not-merge"]), true);
   assert.equal(hasPRMergerLabel(["Ready-To-Merge"]), true);
   assert.equal(hasPRMergerLabel(["documentation", "triage"]), false);
