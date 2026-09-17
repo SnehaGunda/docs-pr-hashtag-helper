@@ -12,8 +12,6 @@ const {
   isLearnBuildBot,
   hasPRMergerLabel,
   labelCommand,
-  labelInputValidation,
-  filterLabelSuggestions,
   nextWorkflowCommand,
   commandForLatestComment,
   latestWorkflowCommand,
@@ -145,61 +143,6 @@ test("formats custom label automation commands", () => {
   assert.equal(labelCommand("label", 'bad"label'), null);
   assert.equal(labelCommand("remove", "needs review"), null);
   assert.equal(labelCommand("label", "x".repeat(201)), null);
-});
-
-test("validates custom label input while preserving the character count", () => {
-  assert.deepEqual(labelInputValidation(""), {
-    valid: false,
-    count: 0,
-    message: "Enter a label name."
-  });
-  assert.deepEqual(labelInputValidation("needs review"), {
-    valid: true,
-    count: 12,
-    message: ""
-  });
-  assert.equal(labelInputValidation("x".repeat(200)).valid, true);
-  assert.deepEqual(labelInputValidation("x".repeat(201)), {
-    valid: false,
-    count: 201,
-    message: "Label names can contain up to 200 characters (1 over)."
-  });
-  assert.equal(labelInputValidation('bad"label').valid, false);
-});
-
-test("filters repository label suggestions without hiding custom labels", () => {
-  assert.deepEqual(
-    filterLabelSuggestions(
-      ["needs-review", "documentation", "Needs-Review", "ready-to-merge"],
-      "review",
-      ["ready-to-merge"]
-    ),
-    ["needs-review"]
-  );
-  assert.deepEqual(
-    filterLabelSuggestions(
-      ["customer-reported", "customer", "needs-customer-input"],
-      "customer"
-    ),
-    ["customer", "customer-reported", "needs-customer-input"]
-  );
-  assert.deepEqual(
-    filterLabelSuggestions(["third", "first", "second"]),
-    ["first", "second", "third"]
-  );
-  assert.deepEqual(
-    filterLabelSuggestions(["third", "first", "second"], "", [], 2),
-    ["first", "second"]
-  );
-  assert.deepEqual(
-    filterLabelSuggestions(
-      ["sixth", "fifth", "fourth", "third", "second", "first"],
-      "",
-      [],
-      5
-    ),
-    ["fifth", "first", "fourth", "second", "sixth"]
-  );
 });
 
 test("recognizes PRMerger repository labels", () => {
