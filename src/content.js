@@ -278,14 +278,14 @@
    * Sets a text area's value via the native setter and dispatches an input
    * event so any framework listeners (and GitHub's own draft handling) update.
    */
-  function setFieldValue(field, value, caret) {
+  function setFieldValue(field, value, caret, focus = true) {
     const setter = Object.getOwnPropertyDescriptor(
       window.HTMLTextAreaElement.prototype,
       "value"
     ).set;
-    field.focus();
+    if (focus) field.focus({ preventScroll: true });
     setter.call(field, value);
-    field.setSelectionRange(caret, caret);
+    if (focus) field.setSelectionRange(caret, caret);
     const inputEvent =
       typeof InputEvent === "function"
         ? new InputEvent("input", {
@@ -1473,11 +1473,19 @@
     window.setTimeout(() => (status.textContent = ""), 2500);
   }
 
+  function preserveViewport(scrollX, scrollY) {
+    const restore = () => window.scrollTo(scrollX, scrollY);
+    restore();
+    window.requestAnimationFrame(restore);
+    [50, 150, 350].forEach((delay) => window.setTimeout(restore, delay));
+  }
+
   function submitAssignmentWhenReady(
     field,
     button,
     command,
     onSubmitted,
+    viewport,
     attemptsLeft = 20
   ) {
     const submitButton = findCommentSubmitButton(field);
@@ -1485,6 +1493,7 @@
       submitButton.click();
       onSubmitted();
       announceAssignmentStatus(button, `Posted ${command}.`);
+      preserveViewport(viewport.scrollX, viewport.scrollY);
       return;
     }
     if (attemptsLeft > 0) {
@@ -1495,6 +1504,7 @@
             button,
             command,
             onSubmitted,
+            viewport,
             attemptsLeft - 1
           ),
         50
@@ -1512,12 +1522,14 @@
       return;
     }
 
+  const viewport = { scrollX: window.scrollX, scrollY: window.scrollY };
     const before = field.value;
     const separator = before && !before.endsWith("\n") ? "\n" : "";
     const value = before + separator + command;
-    setFieldValue(field, value, value.length);
+  setFieldValue(field, value, value.length, false);
+  preserveViewport(viewport.scrollX, viewport.scrollY);
     announceAssignmentStatus(button, `Posting ${command}...`);
-    submitAssignmentWhenReady(field, button, command, () => {
+  submitAssignmentWhenReady(field, button, command, () => {
       const key = username.toLowerCase();
       if (action === "assign-reviewer") {
         pendingUnassignedReviewers.delete(key);
@@ -1544,7 +1556,7 @@
         const section = assigneeSection();
         if (section) syncUnassignButtons(section);
       }
-    });
+    }, viewport);
   }
 
   function postLabelCommand(button, action, label) {
@@ -1555,10 +1567,12 @@
       return;
     }
 
+  const viewport = { scrollX: window.scrollX, scrollY: window.scrollY };
     const before = field.value;
     const separator = before && !before.endsWith("\n") ? "\n" : "";
     const value = before + separator + command;
-    setFieldValue(field, value, value.length);
+  setFieldValue(field, value, value.length, false);
+  preserveViewport(viewport.scrollX, viewport.scrollY);
     announceAssignmentStatus(button, `Posting ${command}...`);
     submitAssignmentWhenReady(field, button, command, () => {
       const key = label.toLowerCase();
@@ -1572,7 +1586,7 @@
       persistLabelState();
       const section = labelsSection();
       if (section) syncRemoveLabelButtons(section);
-    });
+    }, viewport);
   }
 
   function postWorkflowComment(button, requestedCommand = null) {
