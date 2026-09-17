@@ -3,8 +3,7 @@ const assert = require("node:assert/strict");
 
 const {
   commandForReadyState,
-  shouldShowWorkflowButton,
-  isPassedChecksText,
+  mergeBoxAction,
   isClosedUnmergedText,
   isReopenControlLabel,
   isAssigneeControlLabel,
@@ -15,12 +14,78 @@ const {
   nextWorkflowCommand,
   commandForLatestComment,
   latestWorkflowCommand,
-  containsCommand
+  containsCommand,
+  areChecksComplete
 } = require("../src/workflow.js");
 
 test("derives the workflow command from the current PR state", () => {
   assert.equal(commandForReadyState(false), "#sign-off");
   assert.equal(commandForReadyState(true), "#hold-off");
+});
+
+test("describes the merge box action from PRMerger labels", () => {
+  assert.deepEqual(mergeBoxAction(["do-not-merge"]), {
+    command: "#sign-off",
+    title: "Merge with PRMerger",
+    description: "Comment #sign-off to merge.",
+    icon: "check",
+    disabled: false
+  });
+  assert.deepEqual(mergeBoxAction(["Ready-To-Merge"]), {
+    command: "#hold-off",
+    title: "Hold off merge",
+    description: "Comment #hold-off to cancel merge.",
+    icon: "hand"
+  });
+  assert.equal(
+    mergeBoxAction(["do-not-merge", "qualifies-for-auto-merge"]).description,
+    "Comment #sign-off to merge automatically."
+  );
+  assert.equal(
+    mergeBoxAction(["do-not-merge", "needs-human-review"]).description,
+    "Comment #sign-off to request review and merge."
+  );
+  assert.equal(
+    mergeBoxAction([
+      "do-not-merge",
+      "qualifies-for-auto-merge",
+      "needs-human-review"
+    ]).description,
+    "Comment #sign-off to request review and merge."
+  );
+  assert.equal(mergeBoxAction(["documentation"]), null);
+  assert.equal(mergeBoxAction([]), null);
+});
+
+test("disables sign-off until GitHub reports completed checks", () => {
+  assert.deepEqual(mergeBoxAction(["do-not-merge"], false), {
+    command: "#sign-off",
+    title: "Not ready for sign-off",
+    description:
+      "Wait for OpenPublishing.Build, PoliCheck, and Authoring Assistant to complete before signing off.",
+    icon: "hourglass",
+    disabled: true
+  });
+  assert.equal(areChecksComplete(["All checks have passed"]), true);
+  assert.equal(areChecksComplete(["4 successful checks"]), true);
+  assert.equal(
+    areChecksComplete(["Merging is blocked", "All checks have passed"]),
+    true
+  );
+  assert.equal(
+    areChecksComplete(["1 pending review", "All checks have passed"]),
+    true
+  );
+  assert.equal(
+    areChecksComplete(["1 pending review", "4 successful checks"]),
+    true
+  );
+  assert.equal(
+    areChecksComplete(["4 successful checks", "1 pending check"]),
+    false
+  );
+  assert.equal(areChecksComplete(["Checks are in progress"]), false);
+  assert.equal(areChecksComplete([]), false);
 });
 
 test("detects a standalone workflow command in a draft", () => {
@@ -32,13 +97,6 @@ test("does not confuse partial or embedded text for a command", () => {
   assert.equal(containsCommand("#sign-off-later", "#sign-off"), false);
   assert.equal(containsCommand("text#sign-off", "#sign-off"), false);
   assert.equal(containsCommand("", "#sign-off"), false);
-});
-
-test("shows sign-off only after checks pass and always allows hold-off", () => {
-  assert.equal(shouldShowWorkflowButton(false, false), false);
-  assert.equal(shouldShowWorkflowButton(false, true), true);
-  assert.equal(shouldShowWorkflowButton(true, false), true);
-  assert.equal(shouldShowWorkflowButton(true, true), true);
 });
 
 test("toggles between sign-off and hold-off after posting", () => {
@@ -70,14 +128,6 @@ test("uses the last workflow command within the latest comment", () => {
     "#hold-off"
   );
   assert.equal(latestWorkflowCommand(["text#sign-off"]), null);
-});
-
-test("recognizes GitHub passed-check status variants", () => {
-  assert.equal(isPassedChecksText("All checks have passed"), true);
-  assert.equal(isPassedChecksText("3 checks passed."), true);
-  assert.equal(isPassedChecksText("All required checks were successful"), true);
-  assert.equal(isPassedChecksText("Some checks are still pending"), false);
-  assert.equal(isPassedChecksText("2 checks failed"), false);
 });
 
 test("recognizes closed unmerged pull requests without matching merged ones", () => {
