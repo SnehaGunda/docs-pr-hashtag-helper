@@ -191,6 +191,15 @@ test("filters repository label suggestions without hiding custom labels", () => 
     filterLabelSuggestions(["third", "first", "second"], "", [], 2),
     ["first", "second"]
   );
+  assert.deepEqual(
+    filterLabelSuggestions(
+      ["sixth", "fifth", "fourth", "third", "second", "first"],
+      "",
+      [],
+      5
+    ),
+    ["fifth", "first", "fourth", "second", "sixth"]
+  );
 });
 
 test("recognizes PRMerger repository labels", () => {

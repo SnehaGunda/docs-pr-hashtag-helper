@@ -34,6 +34,7 @@
   let loadingReviewerKey = null;
   let labelPicker = null;
   let repositoryLabels = [];
+  let repositoryLabelColors = new Map();
   let loadedRepositoryLabelsKey = null;
   let loadingRepositoryLabelsKey = null;
   let loadedLabelKey = null;
@@ -391,8 +392,9 @@
     if (labelPicker) labelPicker.hidden = true;
   }
 
-  function repositoryLabelNames(result) {
+  function repositoryLabelData(result) {
     const labels = new Map();
+    const colors = new Map();
     result
       .querySelectorAll(
         ".IssueLabel, main [role='listitem'] h3, input[data-label-name]"
@@ -406,8 +408,15 @@
         const key = name.toLowerCase();
         if (!name || name.length > 200 || labels.has(key)) return;
         labels.set(key, name);
+        const colorHost = label.matches(".IssueLabel")
+          ? label
+          : label.closest("label")?.querySelector("[label-color], .IssueLabel");
+        const color =
+          colorHost?.getAttribute("label-color") ||
+          colorHost?.getAttribute("data-color");
+        if (/^[0-9a-f]{6}$/i.test(color || "")) colors.set(key, `#${color}`);
       });
-    return Array.from(labels.values());
+    return { names: Array.from(labels.values()), colors };
   }
 
   function repositoryLabelsUrl(repo) {
@@ -443,10 +452,12 @@
   function renderLabelSuggestions() {
     if (!labelPicker) return;
     const input = labelPicker.querySelector(".docs-pr-hh-label-input");
+    const search = input.value.trim();
     const suggestions = WORKFLOW.filterLabelSuggestions(
       repositoryLabels,
-      input.value,
-      currentPullRequestLabels().concat(Array.from(pendingAddedLabels.values()))
+      search,
+      currentPullRequestLabels().concat(Array.from(pendingAddedLabels.values())),
+      search ? null : 5
     );
     const list = labelPicker.querySelector(".docs-pr-hh-label-suggestions");
     list.replaceChildren();
@@ -463,8 +474,16 @@
       option.type = "button";
       option.className = "docs-pr-hh-label-option";
       option.setAttribute("role", "option");
-      option.textContent = name;
       option.title = `Add repository label ${name}`;
+      const swatch = document.createElement("span");
+      swatch.className = "docs-pr-hh-label-swatch";
+      swatch.setAttribute("aria-hidden", "true");
+      swatch.style.backgroundColor =
+        repositoryLabelColors.get(name.toLowerCase()) || "#d0d7de";
+      const text = document.createElement("span");
+      text.className = "docs-pr-hh-label-option-text";
+      text.textContent = name;
+      option.append(swatch, text);
       option.addEventListener("click", () => submitLabelFromPicker(name));
       list.appendChild(option);
     });
@@ -497,6 +516,7 @@
     }
     loadingRepositoryLabelsKey = key;
     repositoryLabels = currentPullRequestLabels();
+    repositoryLabelColors = new Map();
     labelPickerMessage("Loading repository labels...");
     try {
       const response = await fetch(repositoryLabelsUrl(repo), {
@@ -507,11 +527,12 @@
       }
       const html = await response.text();
       const result = new DOMParser().parseFromString(html, "text/html");
-      const labels = repositoryLabelNames(result);
-      if (labels.length === 0) {
+      const labels = repositoryLabelData(result);
+      if (labels.names.length === 0) {
         throw new Error("GitHub labels page contained no recognizable labels");
       }
-      repositoryLabels = labels;
+      repositoryLabels = labels.names;
+      repositoryLabelColors = labels.colors;
       loadedRepositoryLabelsKey = key;
     } catch (error) {
       console.warn("[Docs PR Hashtag Helper] Could not load labels", error);
