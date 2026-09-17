@@ -1224,7 +1224,13 @@
   }
 
   function updateSignOffButtonState(button) {
-    const command = WORKFLOW.commandForReadyState(hasReadyToMergeLabel());
+    const liveCommand = WORKFLOW.commandForReadyState(hasReadyToMergeLabel());
+    const command = workflowCommandOverride || liveCommand;
+    if (workflowCommandOverride === liveCommand) {
+      workflowCommandOverride = null;
+      pendingPostedWorkflowCommand = null;
+      persistWorkflowCommand(null);
+    }
     const isHoldOff = command === "#hold-off";
     button.disabled = false;
     button.textContent = isHoldOff ? "#Hold-off merge" : "#Sign-off to merge";
