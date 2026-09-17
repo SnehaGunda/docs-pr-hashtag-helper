@@ -18,7 +18,7 @@ const {
   containsCommand
 } = require("../src/workflow.js");
 
-test("uses sign-off until the PR is ready to merge", () => {
+test("derives the workflow command from the current PR state", () => {
   assert.equal(commandForReadyState(false), "#sign-off");
   assert.equal(commandForReadyState(true), "#hold-off");
 });
