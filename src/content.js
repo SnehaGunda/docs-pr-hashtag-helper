@@ -1826,6 +1826,14 @@
     ) {
       hideAssignmentPicker();
     }
+    if (
+      labelPicker &&
+      !labelPicker.hidden &&
+      !labelPicker.contains(event.target) &&
+      !event.target.closest(".docs-pr-hh-add-label")
+    ) {
+      hideLabelPicker();
+    }
   });
   // Keep the menu aligned to the caret while the page (or text area) scrolls,
   // instead of closing it. Scroll events from inside the menu are ignored so
