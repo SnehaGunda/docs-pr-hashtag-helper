@@ -1124,30 +1124,18 @@
     }
   }
 
-  function findAllChecksPassedStatus() {
-    const checkRegions = document.querySelectorAll(
-      "[data-testid*='check' i], " +
-        "[aria-label*='check' i], " +
-        "[class*='check' i], " +
-        "#partial-pull-merging, " +
-        ".js-pull-merging, " +
-        ".merge-message, " +
-        ".merge-status-list, " +
-        ".branch-action-body"
-    );
-    for (const region of checkRegions) {
-      if (!region.offsetParent) continue;
-      const elements = [...region.querySelectorAll("*"), region];
-      const status = elements.find((element) =>
-        WORKFLOW.isPassedChecksText(
-          element.getAttribute("aria-label") ||
-            element.getAttribute("title") ||
-            element.textContent
-        )
-      );
-      if (status) return status;
-    }
-    return null;
+  function areSignOffChecksComplete() {
+    const mergeBox = findMergeBox();
+    if (!mergeBox) return false;
+    const statuses = [
+      ...mergeBox.innerText.split(/\r?\n/),
+      ...Array.from(mergeBox.querySelectorAll("*")).flatMap((element) => [
+        element.getAttribute("aria-label"),
+        element.getAttribute("title"),
+        element.children.length === 0 ? element.textContent : null
+      ])
+    ];
+    return WORKFLOW.areChecksComplete(statuses);
   }
 
   function pullRequestClosureState() {
@@ -1231,20 +1219,31 @@
   }
 
   function updateSignOffButtonState(button) {
-    const liveCommand = WORKFLOW.commandForReadyState(hasReadyToMergeLabel());
-    const command = workflowCommandOverride || liveCommand;
-    if (workflowCommandOverride === liveCommand) {
+    const action = WORKFLOW.mergeBoxAction(
+      currentPullRequestLabels(),
+      areSignOffChecksComplete()
+    );
+    if (!action) return;
+    const command = action.command;
+    if (workflowCommandOverride === command) {
       workflowCommandOverride = null;
       pendingPostedWorkflowCommand = null;
       persistWorkflowCommand(null);
     }
-    const isHoldOff = command === "#hold-off";
-    button.disabled = false;
-    button.textContent = isHoldOff ? "#Hold-off merge" : "#Sign-off to merge";
+    button.disabled = Boolean(action.disabled);
+    button.textContent = command;
     button.dataset.command = command;
-    button.classList.toggle("is-hold-off", isHoldOff);
     button.title = `Post ${command} as a PR comment`;
     button.setAttribute("aria-label", button.title);
+    const row = button.closest(".docs-pr-hh-sign-off-row");
+    const title = row?.querySelector(".docs-pr-hh-sign-off-title");
+    const description = row?.querySelector(
+      ".docs-pr-hh-sign-off-description"
+    );
+    if (title) title.textContent = action.title;
+    if (description) description.textContent = action.description;
+    row?.classList.toggle("is-hold-off", action.icon === "hand");
+    row?.classList.toggle("is-not-ready", action.icon === "hourglass");
   }
 
   function updateReopenButtonState(button) {
@@ -1468,27 +1467,22 @@
     submitCommentWhenReady(field, button, trigger);
   }
 
-  function findMergeBlockedHeading() {
-    return Array.from(
-      document.querySelectorAll("h1, h2, h3, h4, [role='heading']")
-    ).find((heading) => {
-      if (!heading.offsetParent) return false;
-      const copy = heading.cloneNode(true);
-      copy.querySelectorAll(".docs-pr-hh-sign-off-row").forEach((row) =>
-        row.remove()
-      );
-      return /^merging is blocked$/i.test(copy.textContent.trim());
-    });
+  function findMergeBox() {
+    return document.querySelector(
+      "[data-testid='mergebox-border-container'], " +
+        "#partial-pull-merging, " +
+        ".js-pull-merging"
+    );
   }
 
-  function placeWorkflowButtonRow(row, mergeBlockedHeading) {
-    if (!mergeBlockedHeading) return false;
-    if (row.parentElement !== mergeBlockedHeading) {
-      mergeBlockedHeading.appendChild(row);
+  function placeWorkflowButtonRow(row, mergeBox) {
+    if (!mergeBox) return false;
+    if (row.parentElement !== mergeBox || row !== mergeBox.lastElementChild) {
+      mergeBox.appendChild(row);
     }
-    row.classList.remove("is-next-to-checks");
     row.classList.remove("is-next-to-comment");
-    row.classList.add("is-next-to-merge-status");
+    row.classList.remove("is-next-to-merge-status");
+    row.classList.add("is-in-merge-box");
     return true;
   }
 
@@ -1505,7 +1499,7 @@
       actionRow.insertBefore(row, buttonHost);
     }
     row.classList.remove("is-next-to-merge-status");
-    row.classList.remove("is-next-to-checks");
+    row.classList.remove("is-in-merge-box");
     row.classList.add("is-next-to-comment");
     return true;
   }
@@ -1529,7 +1523,7 @@
 
   function syncSignOffButton() {
     signOffSyncQueued = false;
-    const existing = document.querySelector(".docs-pr-hh-sign-off");
+    let existing = document.querySelector(".docs-pr-hh-sign-off");
     if (!isPullRequestPage() || !isActiveRepo()) {
       if (existing) existing.closest(".docs-pr-hh-sign-off-row").remove();
       const assignButton = document.querySelector(".docs-pr-hh-assign");
@@ -1557,6 +1551,14 @@
         if (existing) existing.closest(".docs-pr-hh-sign-off-row").remove();
         return;
       }
+      document
+        .querySelectorAll(
+          ".docs-pr-hh-sign-off-row:not(.is-reopen-action)"
+        )
+        .forEach((row) => row.remove());
+      existing = document.querySelector(
+        ".docs-pr-hh-sign-off-row.is-reopen-action .docs-pr-hh-sign-off"
+      );
       if (existing) {
         updateReopenButtonState(existing);
         placeReopenButtonRow(existing.closest(".docs-pr-hh-sign-off-row"));
@@ -1571,7 +1573,7 @@
       );
 
       const row = document.createElement("span");
-      row.className = "docs-pr-hh-sign-off-row";
+      row.className = "docs-pr-hh-sign-off-row is-reopen-action";
       row.appendChild(button);
 
       const status = document.createElement("span");
@@ -1584,18 +1586,22 @@
       return;
     }
     reopenRequested = false;
+    document
+      .querySelectorAll(
+        ".docs-pr-hh-sign-off-row:not(.is-merge-box-action)"
+      )
+      .forEach((row) => row.remove());
+    existing = document.querySelector(
+      ".docs-pr-hh-sign-off-row.is-merge-box-action .docs-pr-hh-sign-off"
+    );
     if (!ensureWorkflowStateLoaded()) return;
 
-    const readyToMerge = hasReadyToMergeLabel();
-    const checksPassedStatus = findAllChecksPassedStatus();
-    const mergeBlockedHeading = findMergeBlockedHeading();
-    if (
-      !mergeBlockedHeading ||
-      !WORKFLOW.shouldShowWorkflowButton(
-        readyToMerge,
-        Boolean(checksPassedStatus)
-      )
-    ) {
+    const action = WORKFLOW.mergeBoxAction(
+      currentPullRequestLabels(),
+      areSignOffChecksComplete()
+    );
+    const mergeBox = findMergeBox();
+    if (!action || !mergeBox) {
       if (existing) existing.closest(".docs-pr-hh-sign-off-row").remove();
       return;
     }
@@ -1603,23 +1609,42 @@
       updateSignOffButtonState(existing);
       placeWorkflowButtonRow(
         existing.closest(".docs-pr-hh-sign-off-row"),
-        mergeBlockedHeading
+        mergeBox
       );
       return;
     }
 
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "docs-pr-hh-sign-off";
-    button.textContent = "#Sign-off to merge";
+    button.className = "docs-pr-hh-sign-off Button Button--primary Button--medium";
+    button.textContent = action.command;
     button.title = "Post #sign-off as a PR comment";
     button.setAttribute("aria-label", "Post #sign-off as a PR comment");
     button.addEventListener("click", () =>
       postWorkflowComment(button, button.dataset.command)
     );
 
-    const row = document.createElement("span");
-    row.className = "docs-pr-hh-sign-off-row";
+    const row = document.createElement("div");
+    row.className = "docs-pr-hh-sign-off-row is-merge-box-action";
+
+    const summary = document.createElement("div");
+    summary.className = "docs-pr-hh-sign-off-summary";
+    summary.innerHTML =
+      '<svg class="docs-pr-hh-sign-off-icon docs-pr-hh-sign-off-check-icon" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><circle class="docs-pr-hh-sign-off-icon-circle" cx="16" cy="16" r="16"></circle><path class="docs-pr-hh-sign-off-icon-check" d="m10.5 16 3.5 3.5 7.5-7.5"></path></svg>' +
+      '<span class="docs-pr-hh-sign-off-icon docs-pr-hh-sign-off-hand-icon" aria-hidden="true">&#x270B;&#xFE0E;</span>' +
+      '<span class="docs-pr-hh-sign-off-icon docs-pr-hh-sign-off-hourglass-icon" aria-hidden="true">&#x231B;&#xFE0E;</span>';
+    const copy = document.createElement("div");
+    copy.className = "docs-pr-hh-sign-off-copy";
+    const title = document.createElement("div");
+    title.className = "docs-pr-hh-sign-off-title";
+    title.textContent = action.title;
+    copy.appendChild(title);
+    const description = document.createElement("div");
+    description.className = "docs-pr-hh-sign-off-description";
+    description.textContent = action.description;
+    copy.appendChild(description);
+    summary.appendChild(copy);
+    row.appendChild(summary);
     row.appendChild(button);
 
     const status = document.createElement("span");
@@ -1627,7 +1652,7 @@
     status.setAttribute("role", "status");
     status.setAttribute("aria-live", "polite");
     row.appendChild(status);
-    if (!placeWorkflowButtonRow(row, mergeBlockedHeading)) return;
+    if (!placeWorkflowButtonRow(row, mergeBox)) return;
     updateSignOffButtonState(button);
   }
 

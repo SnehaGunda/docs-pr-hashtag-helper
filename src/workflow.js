@@ -5,17 +5,43 @@
     return readyToMerge ? "#hold-off" : "#sign-off";
   }
 
-  function shouldShowWorkflowButton(readyToMerge, allChecksPassed) {
-    return readyToMerge || allChecksPassed;
-  }
-
-  function isPassedChecksText(value) {
-    const text = String(value || "")
-      .trim()
-      .replace(/\s+/g, " ");
-    return /^(?:all|\d+)(?: required)? checks? (?:have |were |are )?(?:passed|successful)[.!]?$/i.test(
-      text
+  function mergeBoxAction(labels, checksComplete = true) {
+    const normalizedLabels = Array.from(labels || []).map((label) =>
+      String(label || "").trim().toLowerCase()
     );
+    if (normalizedLabels.includes("ready-to-merge")) {
+      return {
+        command: "#hold-off",
+        title: "Hold off merge",
+        description: "Comment #hold-off to cancel merge.",
+        icon: "hand"
+      };
+    }
+    if (normalizedLabels.includes("do-not-merge")) {
+      if (!checksComplete) {
+        return {
+          command: "#sign-off",
+          title: "Not ready for sign-off",
+          description:
+            "Wait for OpenPublishing.Build, PoliCheck, and Authoring Assistant to complete before signing off.",
+          icon: "hourglass",
+          disabled: true
+        };
+      }
+      const description = normalizedLabels.includes("needs-human-review")
+        ? "Comment #sign-off to request review and merge."
+        : normalizedLabels.includes("qualifies-for-auto-merge")
+          ? "Comment #sign-off to merge automatically."
+          : "Comment #sign-off to merge.";
+      return {
+        command: "#sign-off",
+        title: "Merge with PRMerger",
+        description,
+        icon: "check",
+        disabled: false
+      };
+    }
+    return null;
   }
 
   function isClosedUnmergedText(value) {
@@ -111,10 +137,30 @@
     return new RegExp(`(^|\\s)${escaped}(?:\\s|$)`, "i").test(value || "");
   }
 
+  function areChecksComplete(statuses) {
+    const values = Array.from(statuses || []).map((status) =>
+      String(status || "").trim().replace(/\s+/g, " ")
+    );
+    const allPassed = values.some((status) =>
+      /^all checks (?:have )?passed[.!]?$/i.test(status)
+    );
+    if (allPassed) return true;
+
+    const incomplete = values.some((status) =>
+      /\bchecks?\b/i.test(status) &&
+      /\b(?:pending|queued|in progress|waiting|expected|failed|failing|failure|cancelled|timed out|warning|action required)\b/i.test(status)
+    );
+    const successful = values.some((status) =>
+      /^(?:\d+ successful checks?|\d+ checks? passed)[.!]?$/i.test(
+        status
+      )
+    );
+    return successful && !incomplete;
+  }
+
   const api = {
     commandForReadyState,
-    shouldShowWorkflowButton,
-    isPassedChecksText,
+    mergeBoxAction,
     isClosedUnmergedText,
     isReopenControlLabel,
     isAssigneeControlLabel,
@@ -125,7 +171,8 @@
     nextWorkflowCommand,
     commandForLatestComment,
     latestWorkflowCommand,
-    containsCommand
+    containsCommand,
+    areChecksComplete
   };
   root.DocsPRWorkflow = api;
 

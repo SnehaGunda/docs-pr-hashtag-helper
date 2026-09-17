@@ -1,18 +1,97 @@
 .docs-pr-hh-sign-off-row {
   display: flex;
-  flex-wrap: wrap;
+  box-sizing: border-box;
   align-items: center;
-  gap: 8px 12px;
-  padding: 12px 16px 0;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 16px;
+  color: var(--fgColor-default, #1f2328);
+  background: var(--bgColor-default, #ffffff);
 }
 
-.docs-pr-hh-sign-off-row.is-next-to-checks {
-  display: inline-flex;
-  flex: 0 0 auto;
-  margin-right: 8px;
-  margin-left: auto;
-  padding: 0;
-  vertical-align: middle;
+.docs-pr-hh-sign-off-row.is-in-merge-box {
+  border-top: 1px solid var(--borderColor-default, #d0d7de);
+  border-radius: 0 0 6px 6px;
+}
+
+.docs-pr-hh-sign-off-summary {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans",
+    Helvetica, Arial, sans-serif;
+}
+
+.docs-pr-hh-sign-off-copy {
+  min-width: 0;
+}
+
+.docs-pr-hh-sign-off-title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+}
+
+.docs-pr-hh-sign-off-description {
+  color: var(--fgColor-muted, #656d76);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
+.docs-pr-hh-sign-off-icon {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  overflow: visible;
+}
+
+.docs-pr-hh-sign-off-hand-icon,
+.docs-pr-hh-sign-off-hourglass-icon {
+  display: none;
+  color: #ffffff;
+  text-align: center;
+  border-radius: 50%;
+}
+
+.docs-pr-hh-sign-off-hand-icon {
+  font: 20px/32px "Segoe UI Symbol", sans-serif;
+  background: var(--bgColor-attention-emphasis, #d4a72c);
+}
+
+.docs-pr-hh-sign-off-hourglass-icon {
+  font: 18px/32px "Segoe UI Symbol", sans-serif;
+  background: var(--bgColor-neutral-emphasis, #6e7681);
+}
+
+.docs-pr-hh-sign-off-row.is-hold-off .docs-pr-hh-sign-off-check-icon {
+  display: none;
+}
+
+.docs-pr-hh-sign-off-row.is-not-ready .docs-pr-hh-sign-off-check-icon {
+  display: none;
+}
+
+.docs-pr-hh-sign-off-row.is-hold-off .docs-pr-hh-sign-off-hand-icon {
+  display: block;
+}
+
+.docs-pr-hh-sign-off-row.is-not-ready .docs-pr-hh-sign-off-hourglass-icon {
+  display: block;
+}
+
+.docs-pr-hh-sign-off-icon-circle {
+  fill: var(--button-primary-bgColor-rest, #238636);
+}
+
+.docs-pr-hh-sign-off-icon-check {
+  fill: none;
+  stroke: var(--button-primary-fgColor-rest, #ffffff);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
 }
 
 .docs-pr-hh-sign-off-row.is-next-to-merge-status {
@@ -35,8 +114,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 28px;
-  padding: 3px 10px;
+  min-height: 32px;
+  padding: 5px 16px;
   color: var(--button-primary-fgColor-rest, #ffffff);
   font: 600 12px/20px -apple-system, BlinkMacSystemFont, "Segoe UI",
     "Noto Sans", Helvetica, Arial, sans-serif;
@@ -54,22 +133,30 @@
   background: var(--button-primary-bgColor-hover, #1a7f37);
 }
 
-.docs-pr-hh-sign-off-row .docs-pr-hh-sign-off.is-hold-off {
-  color: #633c01;
-  background: #fff8c5;
-  border-color: #d4a72c;
+.docs-pr-hh-sign-off-row.is-hold-off .docs-pr-hh-sign-off {
+  color: var(--fgColor-onEmphasis, #ffffff);
+  background: var(--bgColor-attention-emphasis, #d4a72c);
+  border-color: var(--borderColor-attention-emphasis, #d4a72c);
 }
 
-.docs-pr-hh-sign-off-row .docs-pr-hh-sign-off.is-hold-off:hover {
-  background: #fae17d;
+.docs-pr-hh-sign-off-row.is-hold-off .docs-pr-hh-sign-off:hover {
+  background: var(--button-danger-bgColor-hover, #b58407);
+  border-color: var(--button-danger-bgColor-hover, #b58407);
 }
 
 .docs-pr-hh-sign-off-row .docs-pr-hh-sign-off:disabled {
-  color: var(--button-primary-fgColor-disabled, rgba(255, 255, 255, 0.8));
+  color: var(--fgColor-onEmphasis, #ffffff);
   cursor: not-allowed;
-  background: var(--button-primary-bgColor-disabled, #94d3a2);
-  border-color: var(--button-primary-borderColor-disabled, rgba(31, 35, 40, 0.1));
+  background: var(--bgColor-neutral-emphasis, #6e7681);
+  border-color: var(--borderColor-neutral-emphasis, #6e7681);
   box-shadow: none;
+}
+
+@media (max-width: 544px) {
+  .docs-pr-hh-sign-off-row.is-in-merge-box {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 
 .docs-pr-hh-sign-off-row .docs-pr-hh-sign-off:focus-visible {
