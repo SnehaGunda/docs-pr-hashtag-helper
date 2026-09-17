@@ -598,8 +598,15 @@
     if (host) return host;
 
     host = document.createElement("span");
-    host.className = "docs-pr-hh-assignment-action-row";
+    host.className =
+      "docs-pr-hh-assignee-row docs-pr-hh-assignment-action-row";
     host.dataset.username = username;
+
+    const name = document.createElement("span");
+    name.className = "docs-pr-hh-assignee-name";
+    name.textContent = `@${username}`;
+    host.appendChild(name);
+
     const assignees = section.querySelector(".js-issue-assignees") || section;
     assignees.appendChild(host);
     return host;

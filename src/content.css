@@ -374,11 +374,10 @@
 }
 
 .docs-pr-hh-assignment-action-row {
-  display: flex;
+  display: flex !important;
   align-items: center;
-  justify-content: flex-end;
+  width: 100%;
   min-height: 24px;
-  margin-top: -24px;
 }
 
 .docs-pr-hh-reviewer-action-row {
@@ -388,6 +387,7 @@
   min-height: 24px;
 }
 
+.docs-pr-hh-assignee-name,
 .docs-pr-hh-reviewer-name {
   min-width: 0;
   overflow: hidden;
