@@ -1084,13 +1084,17 @@
     window.setTimeout(() => (status.textContent = ""), 2500);
   }
 
-  function hasReadyToMergeLabel() {
+  function hasPullRequestLabel(name) {
     const labels = document.querySelectorAll(
       ".IssueLabel, [data-testid='issue-label'], a[href*='/labels/']"
     );
     return Array.from(labels).some(
-      (label) => label.textContent.trim().toLowerCase() === "ready-to-merge"
+      (label) => label.textContent.trim().toLowerCase() === name
     );
+  }
+
+  function hasReadyToMergeLabel() {
+    return hasPullRequestLabel("ready-to-merge");
   }
 
   function currentPullRequestKey() {
@@ -1565,10 +1569,23 @@
     });
   }
 
+  function findMergeBoxHost() {
+    const hosts = document.querySelectorAll(
+      "[data-testid='mergebox-border-container'] .branch-action-body, " +
+        "#partial-pull-merging .branch-action-body, " +
+        ".js-pull-merging .branch-action-body, " +
+        "[data-testid='mergebox-border-container'], " +
+        "#partial-pull-merging, " +
+        ".js-pull-merging"
+    );
+    return Array.from(hosts).find((host) => host.offsetParent) || null;
+  }
+
   function placeWorkflowButtonRow(row, mergeBlockedHeading) {
-    if (!mergeBlockedHeading) return false;
-    if (row.parentElement !== mergeBlockedHeading) {
-      mergeBlockedHeading.appendChild(row);
+    const host = mergeBlockedHeading || findMergeBoxHost();
+    if (!host) return false;
+    if (row.parentElement !== host) {
+      host.appendChild(row);
     }
     row.classList.remove("is-next-to-checks");
     row.classList.remove("is-next-to-comment");
@@ -1652,11 +1669,14 @@
     const readyToMerge = hasReadyToMergeLabel();
     const checksPassedStatus = findAllChecksPassedStatus();
     const mergeBlockedHeading = findMergeBlockedHeading();
+    const workflowBlocked =
+      hasPullRequestLabel("do-not-merge") ||
+      latestPostedWorkflowCommand() === "#hold-off";
     if (
-      !mergeBlockedHeading ||
       !WORKFLOW.shouldShowWorkflowButton(
         readyToMerge,
-        Boolean(checksPassedStatus)
+        Boolean(checksPassedStatus),
+        workflowBlocked
       )
     ) {
       if (existing) existing.closest(".docs-pr-hh-sign-off-row").remove();

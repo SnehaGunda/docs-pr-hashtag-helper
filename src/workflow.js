@@ -5,8 +5,12 @@
     return readyToMerge ? "#hold-off" : "#sign-off";
   }
 
-  function shouldShowWorkflowButton(readyToMerge, allChecksPassed) {
-    return readyToMerge || allChecksPassed;
+  function shouldShowWorkflowButton(
+    readyToMerge,
+    allChecksPassed,
+    workflowBlocked = false
+  ) {
+    return readyToMerge || allChecksPassed || workflowBlocked;
   }
 
   function isPassedChecksText(value) {

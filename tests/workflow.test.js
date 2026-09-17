@@ -39,6 +39,10 @@ test("shows sign-off only after checks pass and always allows hold-off", () => {
   assert.equal(shouldShowWorkflowButton(true, true), true);
 });
 
+test("shows sign-off when the workflow is explicitly blocked", () => {
+  assert.equal(shouldShowWorkflowButton(false, false, true), true);
+});
+
 test("toggles between sign-off and hold-off after posting", () => {
   assert.equal(nextWorkflowCommand("#sign-off"), "#hold-off");
   assert.equal(nextWorkflowCommand("#hold-off"), "#sign-off");
