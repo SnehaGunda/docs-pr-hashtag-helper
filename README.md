@@ -14,9 +14,6 @@ hashtag comments in a GitHub PR to trigger label changes and state transitions
 - Discoverability: you have to leave the PR to look them up.
 - A wrong command doesn't trigger the intended automation, which slows down merges.
 
-There's no native GitHub autocomplete for these commands (GitHub only
-autocompletes `@mentions`, `#issues`, and `:emoji:`).
-
 ## Supported commands
 
 Sourced from the Microsoft Learn contributor guidance on GitHub comment
@@ -78,8 +75,8 @@ Design choices:
 - **Least privilege.** Only requests `github.com` host access plus `storage` for
   settings. User search stays within GitHub, and the extension doesn't call
   external services or store PR content.
-- **Data-driven.** The command list lives in `src/commands.js`, so updating it
-  when the docs change is a one-file edit.
+- **Data-driven reference.** The command list shown on the options page lives
+  in `src/commands.js`, so updating it when the docs change is a one-file edit.
 
 ## Scalable for any contributor and eligible repo
 
@@ -94,11 +91,9 @@ community, not hardwired to one repo:
   - **Only specific orgs or repos** — an allowlist such as `MicrosoftDocs` or
     `MicrosoftDocs/fabric-docs-pr`, one entry per line.
 - **SPA-safe gating.** GitHub navigates between repos without full reloads, so
-  the active-repo check runs on each keystroke and always reflects the current
-  page.
+  the active-repo check always reflects the current page.
 - **One place to maintain commands.** When the official command set changes,
-  edit `src/commands.js` only — the menu, options page, and README-style command
-  list all read from it.
+  edit `src/commands.js` to update the options-page reference.
 
 Open the options page from `edge://extensions` → the extension → **Details** →
 **Extension options** (or right-click the toolbar icon → **Options**).
@@ -109,10 +104,10 @@ Open the options page from `edge://extensions` → the extension → **Details**
 docs-pr-hashtag-helper/
 ├── manifest.json        # MV3 extension manifest
 ├── src/
-│   ├── commands.js      # Command definitions (single source of truth)
+│   ├── commands.js      # Options-page command reference
 │   ├── config.js        # Settings + per-repo activation logic
-│   ├── content.js       # Autocomplete logic injected into GitHub
-│   └── content.css      # Dropdown styling
+│   ├── content.js       # PR controls injected into GitHub
+│   └── content.css      # Injected control styling
 ├── options/
 │   ├── options.html     # Settings page (scope configuration)
 │   ├── options.js

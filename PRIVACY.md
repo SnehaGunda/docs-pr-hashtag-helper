@@ -6,9 +6,8 @@ data.
 ## What the extension does
 
 - Runs only on `github.com` pages.
-- Watches text you type in a comment box **locally in your browser** to show an
-  autocomplete menu for Microsoft Learn PR hashtag commands.
-- Inserts the command you pick into the comment box.
+- Reads the GitHub pull request page **locally in your browser** to show
+  Microsoft Learn PR workflow controls.
 - When you select **sign-off to merge** or **hold-off merge**, inserts the
   corresponding command and activates GitHub's normal **Comment** button. This
   explicit action submits the comment to GitHub, just as selecting **Comment**
@@ -41,8 +40,8 @@ data.
 ## Permissions
 
 - `storage` — to save your scope preference and pending per-PR action state.
-- Host access to `https://github.com/*` — so the autocomplete can appear in
-  GitHub comment boxes.
+- Host access to `https://github.com/*` — so the controls can appear on GitHub
+  pull request pages.
 
 ## Contact
 

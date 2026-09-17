@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Docs PR Hashtag Helper",
   "version": "0.1.0",
-  "description": "Autocomplete dropdown for Microsoft Learn PR hashtag comments (#sign-off, #hold-off, #please-close, #please-open) on GitHub.",
+  "description": "Controls for Microsoft Learn PR workflow, labels, assignees, and reviewers on GitHub.",
   "permissions": ["storage"],
   "icons": {
     "16": "icons/icon-16.png",
@@ -27,7 +27,6 @@
     {
       "matches": ["https://github.com/*"],
       "js": [
-        "src/commands.js",
         "src/config.js",
         "src/workflow.js",
         "src/content.js"

@@ -6,7 +6,7 @@
  *
  * Schema per command:
  *   trigger      Searchable text the menu filters on (always starts with "#").
- *   display      Label shown in the dropdown.
+ *   display      Label shown in the options-page command list.
  *   insert       Text inserted when chosen. "${CURSOR}" marks where the caret
  *                lands (for commands that take an argument). If it's absent, the
  *                caret goes to the end of the inserted text.
