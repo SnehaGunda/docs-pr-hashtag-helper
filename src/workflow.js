@@ -107,7 +107,7 @@
     return { valid: true, count, message: "" };
   }
 
-  function filterLabelSuggestions(labels, query, excludedLabels = [], limit = 8) {
+  function filterLabelSuggestions(labels, query, excludedLabels = [], limit = null) {
     const search = String(query || "").trim().toLowerCase();
     const excluded = new Set(
       Array.from(excludedLabels || [], (label) =>
@@ -121,14 +121,16 @@
       if (!name || excluded.has(key) || unique.has(key)) return;
       if (!search || key.includes(search)) unique.set(key, name);
     });
-    return Array.from(unique.values())
+    const suggestions = Array.from(unique.values())
       .sort((left, right) => {
         const leftStarts = left.toLowerCase().startsWith(search);
         const rightStarts = right.toLowerCase().startsWith(search);
         if (leftStarts !== rightStarts) return leftStarts ? -1 : 1;
         return left.localeCompare(right, undefined, { sensitivity: "base" });
-      })
-      .slice(0, Math.max(0, limit));
+      });
+    return Number.isInteger(limit) && limit >= 0
+      ? suggestions.slice(0, limit)
+      : suggestions;
   }
 
   function nextWorkflowCommand(command) {

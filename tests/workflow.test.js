@@ -183,6 +183,14 @@ test("filters repository label suggestions without hiding custom labels", () => 
     ),
     ["customer", "customer-reported", "needs-customer-input"]
   );
+  assert.deepEqual(
+    filterLabelSuggestions(["third", "first", "second"]),
+    ["first", "second", "third"]
+  );
+  assert.deepEqual(
+    filterLabelSuggestions(["third", "first", "second"], "", [], 2),
+    ["first", "second"]
+  );
 });
 
 test("recognizes PRMerger repository labels", () => {
