@@ -1437,8 +1437,7 @@
     }
 
     const trigger = requestedCommand || currentWorkflowCommand();
-    const command = COMMANDS.find((item) => item.trigger === trigger);
-    const insertText = command ? command.insert.trimEnd() : trigger;
+    const insertText = trigger;
     if (WORKFLOW.containsCommand(field.value, trigger)) {
       field.focus();
       field.scrollIntoView({ behavior: "smooth", block: "center" });
