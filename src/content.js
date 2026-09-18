@@ -19,6 +19,8 @@
   let loadedReviewerKey = null;
   let loadingReviewerKey = null;
   let labelPicker = null;
+  let labelPickerRepository = null;
+  let labelPickerController = null;
   let loadedLabelKey = null;
   let loadingLabelKey = null;
   let lastEligibilityLog = null;
@@ -28,6 +30,7 @@
   const pendingUnassignedReviewers = new Set();
   const pendingAddedLabels = new Map();
   const pendingRemovedLabels = new Set();
+  const repositoryLabelCache = new Map();
 
   // Current settings, refreshed live so GitHub navigation between repositories
   // stays correctly gated without a full page reload.
@@ -225,7 +228,104 @@
   }
 
   function hideLabelPicker() {
-    if (labelPicker) labelPicker.hidden = true;
+    if (labelPicker) {
+      labelPicker.hidden = true;
+      const custom = labelPicker.querySelector(".docs-pr-hh-custom-label-row");
+      const customToggle = labelPicker.querySelector(
+        ".docs-pr-hh-custom-label-toggle"
+      );
+      if (custom) custom.hidden = true;
+      if (customToggle) customToggle.setAttribute("aria-expanded", "false");
+    }
+    const button = document.querySelector(".docs-pr-hh-add-label");
+    if (button) button.setAttribute("aria-expanded", "false");
+  }
+
+  function parseRepositoryLabels(html) {
+    const page = new DOMParser().parseFromString(html, "text/html");
+    const labels = new Map();
+    page.querySelectorAll("[style*='--label-r']").forEach((token) => {
+      const link = token.closest("a[aria-label]");
+      const name = link && link.getAttribute("aria-label").trim();
+      const color = WORKFLOW.labelColorFromStyle(token.getAttribute("style"));
+      if (!name || !color || labels.has(name.toLowerCase())) return;
+      labels.set(name.toLowerCase(), { name, color });
+    });
+    const next = page.querySelector(
+      '[data-component="Pagination.NextPage"][rel="next"][href]'
+    );
+    return { labels: Array.from(labels.values()), next: next?.getAttribute("href") };
+  }
+
+  async function fetchRepositoryLabels(repo) {
+    if (labelPickerController) labelPickerController.abort();
+    labelPickerController = new AbortController();
+    const labels = new Map();
+    let path = `/${repo.owner}/${repo.repo}/labels`;
+    for (let page = 0; path && page < 10; page += 1) {
+      const response = await fetch(path, {
+        credentials: "same-origin",
+        signal: labelPickerController.signal
+      });
+      if (!response.ok) throw new Error(`GitHub labels returned ${response.status}`);
+      const parsed = parseRepositoryLabels(await response.text());
+      parsed.labels.forEach((label) => labels.set(label.name.toLowerCase(), label));
+      if (!parsed.next) break;
+      const next = new URL(parsed.next, window.location.origin);
+      path =
+        next.origin === window.location.origin &&
+        next.pathname === `/${repo.owner}/${repo.repo}/labels`
+          ? `${next.pathname}${next.search}`
+          : null;
+    }
+    return Array.from(labels.values()).sort((left, right) =>
+      left.name.localeCompare(right.name)
+    );
+  }
+
+  function renderRepositoryLabels(labels, query = "") {
+    const list = labelPicker.querySelector(".docs-pr-hh-label-list");
+    list.replaceChildren();
+    const selected = new Set(
+      currentPullRequestLabels()
+        .concat(Array.from(pendingAddedLabels.values()))
+        .map((name) => name.toLowerCase())
+    );
+    const matches = labels.filter(
+      ({ name }) =>
+        !selected.has(name.toLowerCase()) &&
+        name.toLowerCase().includes(query.trim().toLowerCase())
+    );
+    if (matches.length === 0) {
+      const message = document.createElement("div");
+      message.className = "docs-pr-hh-label-message";
+      message.textContent = query ? "No matching labels." : "No labels available.";
+      list.appendChild(message);
+      return;
+    }
+    matches.forEach(({ name, color }) => {
+      const option = document.createElement("button");
+      option.type = "button";
+      option.className = "docs-pr-hh-label-option";
+      option.setAttribute("role", "option");
+      const swatch = document.createElement("span");
+      swatch.className = "docs-pr-hh-label-swatch";
+      swatch.style.backgroundColor = color;
+      swatch.setAttribute("aria-hidden", "true");
+      option.appendChild(swatch);
+      const text = document.createElement("span");
+      text.textContent = name;
+      option.appendChild(text);
+      option.addEventListener("click", () => {
+        hideLabelPicker();
+        postLabelCommand(
+          document.querySelector(".docs-pr-hh-add-label"),
+          "label",
+          name
+        );
+      });
+      list.appendChild(option);
+    });
   }
 
   function getLabelPicker() {
@@ -234,8 +334,39 @@
     labelPicker.className = "docs-pr-hh-label-picker";
     labelPicker.hidden = true;
     labelPicker.setAttribute("role", "dialog");
-    labelPicker.setAttribute("aria-label", "Add a custom label");
+    labelPicker.setAttribute("aria-label", "Add a label");
 
+    const search = document.createElement("input");
+    search.type = "search";
+    search.className = "docs-pr-hh-label-search";
+    search.placeholder = "Filter labels";
+    search.setAttribute("aria-label", "Filter repository labels");
+    search.addEventListener("input", () =>
+      renderRepositoryLabels(
+        repositoryLabelCache.get(labelPickerRepository) || [],
+        search.value
+      )
+    );
+    search.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") hideLabelPicker();
+    });
+    labelPicker.appendChild(search);
+
+    const list = document.createElement("div");
+    list.className = "docs-pr-hh-label-list";
+    list.setAttribute("role", "listbox");
+    labelPicker.appendChild(list);
+
+    const customToggle = document.createElement("button");
+    customToggle.type = "button";
+    customToggle.className = "docs-pr-hh-custom-label-toggle";
+    customToggle.textContent = "+ Add custom label";
+    customToggle.setAttribute("aria-expanded", "false");
+    labelPicker.appendChild(customToggle);
+
+    const custom = document.createElement("div");
+    custom.className = "docs-pr-hh-custom-label-row";
+    custom.hidden = true;
     const input = document.createElement("input");
     input.type = "text";
     input.className = "docs-pr-hh-label-input";
@@ -246,11 +377,10 @@
       if (event.key === "Escape") hideLabelPicker();
       if (event.key === "Enter") {
         event.preventDefault();
-        labelPicker.querySelector(".docs-pr-hh-label-submit").click();
+        custom.querySelector(".docs-pr-hh-label-submit").click();
       }
     });
-    labelPicker.appendChild(input);
-
+    custom.appendChild(input);
     const submit = document.createElement("button");
     submit.type = "button";
     submit.className = "docs-pr-hh-label-submit";
@@ -275,13 +405,23 @@
       );
       input.value = "";
     });
-    labelPicker.appendChild(submit);
+    custom.appendChild(submit);
+    labelPicker.appendChild(custom);
+    customToggle.addEventListener("click", () => {
+      custom.hidden = !custom.hidden;
+      customToggle.setAttribute("aria-expanded", String(!custom.hidden));
+      if (!custom.hidden) input.focus();
+    });
     document.body.appendChild(labelPicker);
     return labelPicker;
   }
 
-  function showLabelPicker(button) {
+  async function showLabelPicker(button) {
     const picker = getLabelPicker();
+    const repo = CONFIG && CONFIG.currentRepo();
+    if (!repo) return;
+    const repositoryKey = repo.full.toLowerCase();
+    labelPickerRepository = repositoryKey;
     const rect = button.getBoundingClientRect();
     picker.style.top = `${window.scrollY + rect.bottom + 6}px`;
     picker.style.left = `${Math.max(
@@ -292,9 +432,32 @@
       )
     )}px`;
     picker.hidden = false;
-    const input = picker.querySelector(".docs-pr-hh-label-input");
-    input.setCustomValidity("");
-    input.focus();
+    button.setAttribute("aria-expanded", "true");
+    const search = picker.querySelector(".docs-pr-hh-label-search");
+    search.value = "";
+    search.focus();
+    if (repositoryLabelCache.has(repositoryKey)) {
+      renderRepositoryLabels(repositoryLabelCache.get(repositoryKey));
+      return;
+    }
+    const list = picker.querySelector(".docs-pr-hh-label-list");
+    list.innerHTML = '<div class="docs-pr-hh-label-message">Loading labels...</div>';
+    try {
+      const labels = await fetchRepositoryLabels(repo);
+      repositoryLabelCache.set(repositoryKey, labels);
+      if (
+        !picker.hidden &&
+        labelPickerRepository === repositoryKey &&
+        CONFIG.currentRepo()?.full.toLowerCase() === repositoryKey
+      ) {
+        renderRepositoryLabels(labels, search.value);
+      }
+    } catch (error) {
+      if (error.name !== "AbortError" && !picker.hidden) {
+        list.innerHTML =
+          '<div class="docs-pr-hh-label-message">Could not load repository labels.</div>';
+      }
+    }
   }
 
   function hideAssignmentPicker() {
@@ -950,8 +1113,10 @@
     button.type = "button";
     button.className = "docs-pr-hh-add-label";
     button.textContent = "Add";
-    button.title = "Add a custom label with a PRMerger hashtag comment";
+    button.title = "Add a pre-defined or custom label";
     button.setAttribute("aria-label", button.title);
+    button.setAttribute("aria-haspopup", "dialog");
+    button.setAttribute("aria-expanded", "false");
     button.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();

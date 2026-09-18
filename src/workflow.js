@@ -116,6 +116,22 @@
     return `#${action}:"${name}"`;
   }
 
+  function labelColorFromStyle(style) {
+    const values = ["r", "g", "b"].map((channel) => {
+      const match = String(style || "").match(
+        new RegExp(
+          `--label-${channel}\\s*:\\s*(\\d{1,3})(?=\\s*;|\\s*$)`,
+          "i"
+        )
+      );
+      return match ? Number(match[1]) : NaN;
+    });
+    if (values.some((value) => !Number.isInteger(value) || value > 255)) {
+      return null;
+    }
+    return `rgb(${values.join(", ")})`;
+  }
+
   function nextWorkflowCommand(command) {
     return command === "#sign-off" ? "#hold-off" : "#sign-off";
   }
@@ -174,6 +190,7 @@
     isLearnBuildBot,
     hasPRMergerLabel,
     labelCommand,
+    labelColorFromStyle,
     nextWorkflowCommand,
     commandForLatestComment,
     latestWorkflowCommand,
