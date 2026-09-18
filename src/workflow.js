@@ -5,11 +5,14 @@
     return readyToMerge ? "#hold-off" : "#sign-off";
   }
 
-  function mergeBoxAction(labels, checksComplete = true) {
+  function mergeBoxAction(labels, checksComplete = true, commandOverride = null) {
     const normalizedLabels = Array.from(labels || []).map((label) =>
       String(label || "").trim().toLowerCase()
     );
-    if (normalizedLabels.includes("ready-to-merge")) {
+    if (
+      commandOverride === "#hold-off" ||
+      (!commandOverride && normalizedLabels.includes("ready-to-merge"))
+    ) {
       return {
         command: "#hold-off",
         title: "Hold off merge",
@@ -17,7 +20,10 @@
         icon: "hand"
       };
     }
-    if (normalizedLabels.includes("do-not-merge")) {
+    if (
+      commandOverride === "#sign-off" ||
+      normalizedLabels.includes("do-not-merge")
+    ) {
       if (!checksComplete) {
         return {
           command: "#sign-off",

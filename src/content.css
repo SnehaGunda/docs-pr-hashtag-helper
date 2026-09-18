@@ -133,17 +133,6 @@
   background: var(--button-primary-bgColor-hover, #1a7f37);
 }
 
-.docs-pr-hh-sign-off-row.is-hold-off .docs-pr-hh-sign-off {
-  color: var(--fgColor-onEmphasis, #ffffff);
-  background: var(--bgColor-attention-emphasis, #d4a72c);
-  border-color: var(--borderColor-attention-emphasis, #d4a72c);
-}
-
-.docs-pr-hh-sign-off-row.is-hold-off .docs-pr-hh-sign-off:hover {
-  background: var(--button-danger-bgColor-hover, #b58407);
-  border-color: var(--button-danger-bgColor-hover, #b58407);
-}
-
 .docs-pr-hh-sign-off-row .docs-pr-hh-sign-off:disabled {
   color: var(--fgColor-onEmphasis, #ffffff);
   cursor: not-allowed;
