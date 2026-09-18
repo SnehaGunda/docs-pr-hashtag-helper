@@ -14,6 +14,7 @@
   let assignmentPickerAction = "assign";
   let assignmentSearchTimer = null;
   let assignmentSearchController = null;
+  let assignmentPickerReturnFocus = null;
   let loadedAssignmentKey = null;
   let loadingAssignmentKey = null;
   let loadedReviewerKey = null;
@@ -31,6 +32,7 @@
   const pendingUnassignedReviewers = new Set();
   const pendingAddedLabels = new Map();
   const pendingRemovedLabels = new Set();
+  const selectedAssignmentUsers = new Map();
   const selectedRepositoryLabels = new Map();
   const repositoryLabelCache = new Map();
 
@@ -229,6 +231,36 @@
     );
   }
 
+  function dialogFocusableElements(dialog) {
+    return Array.from(
+      dialog.querySelectorAll(
+        "button:not([disabled]), input:not([disabled]), " +
+          "select:not([disabled]), textarea:not([disabled]), " +
+          "a[href], [tabindex]:not([tabindex='-1'])"
+      )
+    ).filter((element) => !element.hidden && !element.closest("[hidden]"));
+  }
+
+  function handleDialogKeydown(event, dialog, closeDialog) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeDialog();
+      return true;
+    }
+    if (event.key !== "Tab") return false;
+    const focusable = dialogFocusableElements(dialog);
+    const nextIndex = WORKFLOW.nextDialogFocusIndex(
+      focusable.indexOf(document.activeElement),
+      focusable.length,
+      event.shiftKey
+    );
+    if (nextIndex < 0) return false;
+    event.preventDefault();
+    focusable[nextIndex].focus();
+    return true;
+  }
+
   function hideLabelPicker(restoreFocus = true) {
     const returnFocus = labelPickerReturnFocus;
     if (labelPicker) {
@@ -273,11 +305,7 @@
   }
 
   function handleLabelPickerKeydown(event) {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      hideLabelPicker();
-      return;
-    }
+    if (handleDialogKeydown(event, labelPicker, hideLabelPicker)) return;
     const search = event.target.closest(".docs-pr-hh-label-search");
     const option = event.target.closest(".docs-pr-hh-label-option");
     if (!search && !option) return;
@@ -499,6 +527,7 @@
     const picker = getLabelPicker();
     const repo = CONFIG && CONFIG.currentRepo();
     if (!repo) return;
+    hideAssignmentPicker(false);
     const repositoryKey = repo.full.toLowerCase();
     labelPickerRepository = repositoryKey;
     labelPickerReturnFocus = button;
@@ -542,9 +571,17 @@
     }
   }
 
-  function hideAssignmentPicker() {
+  function hideAssignmentPicker(restoreFocus = true) {
+    const returnFocus = assignmentPickerReturnFocus;
     if (assignmentPicker) assignmentPicker.hidden = true;
     if (assignmentSearchController) assignmentSearchController.abort();
+    window.clearTimeout(assignmentSearchTimer);
+    selectedAssignmentUsers.clear();
+    assignmentPickerReturnFocus = null;
+    if (returnFocus) returnFocus.setAttribute("aria-expanded", "false");
+    if (restoreFocus && returnFocus?.isConnected) {
+      returnFocus.focus({ preventScroll: true });
+    }
   }
 
   function assignmentPickerMessage(message) {
@@ -554,6 +591,57 @@
     item.className = "docs-pr-hh-user-message";
     item.textContent = message;
     list.appendChild(item);
+  }
+
+  function assignmentPickerOptions() {
+    return Array.from(
+      assignmentPicker.querySelectorAll(".docs-pr-hh-user-option")
+    );
+  }
+
+  function updateAssignmentPickerApplyButton() {
+    const apply = assignmentPicker.querySelector(".docs-pr-hh-assignment-apply");
+    const count = selectedAssignmentUsers.size;
+    apply.disabled = count === 0;
+    apply.textContent = count ? `Apply (${count})` : "Apply";
+  }
+
+  function toggleAssignmentUser(option, user) {
+    const key = user.username.toLowerCase();
+    const selected = !selectedAssignmentUsers.has(key);
+    if (selected) selectedAssignmentUsers.set(key, user);
+    else selectedAssignmentUsers.delete(key);
+    option.classList.toggle("is-selected", selected);
+    option.setAttribute("aria-selected", String(selected));
+    updateAssignmentPickerApplyButton();
+  }
+
+  function handleAssignmentPickerKeydown(event) {
+    if (handleDialogKeydown(event, assignmentPicker, hideAssignmentPicker)) {
+      return;
+    }
+    const search = event.target.closest(".docs-pr-hh-user-search");
+    const option = event.target.closest(".docs-pr-hh-user-option");
+    if (!search && !option) return;
+    const options = assignmentPickerOptions();
+    if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+      event.preventDefault();
+      const nextIndex = WORKFLOW.nextPickerOptionIndex(
+        options.indexOf(option),
+        options.length,
+        event.key
+      );
+      if (nextIndex >= 0) options[nextIndex].focus();
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const target = option || options[0];
+      if (target) {
+        target.click();
+        target.focus();
+      }
+    }
   }
 
   function githubUsernameFromPath(path) {
@@ -627,6 +715,7 @@
       return;
     }
     users.forEach(({ username, name, avatarUrl }) => {
+      const user = { username, name, avatarUrl };
       const option = document.createElement("button");
       option.type = "button";
       option.className = "docs-pr-hh-user-option";
@@ -635,6 +724,9 @@
         "aria-label",
         name ? `${name}, @${username}` : `@${username}`
       );
+      const selected = selectedAssignmentUsers.has(username.toLowerCase());
+      option.classList.toggle("is-selected", selected);
+      option.setAttribute("aria-selected", String(selected));
 
       const avatar = document.createElement("img");
       avatar.className = "docs-pr-hh-user-avatar";
@@ -658,21 +750,17 @@
       login.textContent = `@${username}`;
       identity.appendChild(login);
       option.appendChild(identity);
-      option.addEventListener("click", () => {
-        hideAssignmentPicker();
-        const reviewer = assignmentPickerAction === "assign-reviewer";
-        postAssignmentCommand(
-          document.querySelector(
-            reviewer
-              ? ".docs-pr-hh-assign-reviewer"
-              : ".docs-pr-hh-assign"
-          ),
-          assignmentPickerAction,
-          username
-        );
-      });
+      const indicator = document.createElement("span");
+      indicator.className = "docs-pr-hh-user-selected-indicator";
+      indicator.setAttribute("aria-hidden", "true");
+      indicator.textContent = "✓";
+      option.appendChild(indicator);
+      option.addEventListener("click", () =>
+        toggleAssignmentUser(option, user)
+      );
       list.appendChild(option);
     });
+    updateAssignmentPickerApplyButton();
   }
 
   function getAssignmentPicker() {
@@ -682,6 +770,7 @@
     assignmentPicker.hidden = true;
     assignmentPicker.setAttribute("role", "dialog");
     assignmentPicker.setAttribute("aria-label", "Assign a GitHub user");
+    assignmentPicker.addEventListener("keydown", handleAssignmentPickerKeydown);
 
     const input = document.createElement("input");
     input.type = "search";
@@ -706,15 +795,33 @@
         }
       }, 250);
     });
-    input.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") hideAssignmentPicker();
-    });
     assignmentPicker.appendChild(input);
 
     const list = document.createElement("div");
     list.className = "docs-pr-hh-user-list";
     list.setAttribute("role", "listbox");
+    list.setAttribute("aria-multiselectable", "true");
     assignmentPicker.appendChild(list);
+
+    const apply = document.createElement("button");
+    apply.type = "button";
+    apply.className = "docs-pr-hh-assignment-apply";
+    apply.textContent = "Apply";
+    apply.disabled = true;
+    apply.addEventListener("click", () => {
+      const usernames = Array.from(selectedAssignmentUsers.values()).map(
+        ({ username }) => username
+      );
+      if (usernames.length === 0) return;
+      const reviewer = assignmentPickerAction === "assign-reviewer";
+      const button = document.querySelector(
+        reviewer ? ".docs-pr-hh-assign-reviewer" : ".docs-pr-hh-assign"
+      );
+      const action = assignmentPickerAction;
+      hideAssignmentPicker();
+      postAssignmentCommands(button, action, usernames);
+    });
+    assignmentPicker.appendChild(apply);
     document.body.appendChild(assignmentPicker);
     assignmentPickerMessage("Type a GitHub username.");
     return assignmentPicker;
@@ -722,7 +829,11 @@
 
   function showAssignmentPicker(button, action = "assign") {
     const picker = getAssignmentPicker();
+    hideLabelPicker(false);
     assignmentPickerAction = action;
+    assignmentPickerReturnFocus = button;
+    selectedAssignmentUsers.clear();
+    updateAssignmentPickerApplyButton();
     const reviewer = action === "assign-reviewer";
     picker.setAttribute(
       "aria-label",
@@ -738,7 +849,11 @@
       Math.min(window.scrollX + rect.left, document.documentElement.clientWidth - 328)
     )}px`;
     picker.hidden = false;
-    picker.querySelector(".docs-pr-hh-user-search").focus();
+    button.setAttribute("aria-expanded", "true");
+    const search = picker.querySelector(".docs-pr-hh-user-search");
+    search.value = "";
+    assignmentPickerMessage("Type a GitHub username.");
+    search.focus();
   }
 
   function assignedUsers(section) {
@@ -944,6 +1059,8 @@
     button.textContent = "Assign";
     button.title = "Assign with a PRMerger hashtag comment";
     button.setAttribute("aria-label", button.title);
+    button.setAttribute("aria-haspopup", "dialog");
+    button.setAttribute("aria-expanded", "false");
     button.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -1064,6 +1181,8 @@
     button.textContent = "Assign";
     button.title = "Assign a reviewer with a PRMerger hashtag comment";
     button.setAttribute("aria-label", button.title);
+    button.setAttribute("aria-haspopup", "dialog");
+    button.setAttribute("aria-expanded", "false");
     button.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -1610,49 +1729,54 @@
     announceAssignmentStatus(button, "Could not find GitHub's Comment button.");
   }
 
-  function postAssignmentCommand(button, action, username) {
-    const command = WORKFLOW.assignmentCommand(action, username);
+  function postAssignmentCommands(button, action, usernames) {
+    const command = WORKFLOW.assignmentCommands(action, usernames);
     const field = findCommentField();
     if (!command || !field) {
       announceAssignmentStatus(button, "Open the Write tab first.");
       return;
     }
 
-  const viewport = { scrollX: window.scrollX, scrollY: window.scrollY };
+    const viewport = { scrollX: window.scrollX, scrollY: window.scrollY };
     const before = field.value;
     const separator = before && !before.endsWith("\n") ? "\n" : "";
     const value = before + separator + command;
-  setFieldValue(field, value, value.length, false);
-  preserveViewport(viewport.scrollX, viewport.scrollY);
-    announceAssignmentStatus(button, `Posting ${command}...`);
-  submitAssignmentWhenReady(field, button, command, () => {
-      const key = username.toLowerCase();
-      if (action === "assign-reviewer") {
-        pendingUnassignedReviewers.delete(key);
-        pendingReviewers.set(key, username);
+    setFieldValue(field, value, value.length, false);
+    preserveViewport(viewport.scrollX, viewport.scrollY);
+    const status =
+      usernames.length === 1 ? command : `${usernames.length} assignment commands`;
+    announceAssignmentStatus(button, `Posting ${status}...`);
+    submitAssignmentWhenReady(field, button, status, () => {
+      usernames.forEach((username) => {
+        const key = username.toLowerCase();
+        if (action === "assign-reviewer") {
+          pendingUnassignedReviewers.delete(key);
+          pendingReviewers.set(key, username);
+        } else if (action === "unassign-reviewer") {
+          pendingReviewers.delete(key);
+          pendingUnassignedReviewers.add(key);
+        } else if (action === "assign") {
+          pendingUnassignedUsers.delete(key);
+          pendingAssignedUsers.set(key, username);
+        } else if (action === "unassign") {
+          pendingAssignedUsers.delete(key);
+          pendingUnassignedUsers.add(key);
+        }
+      });
+      if (action.includes("reviewer")) {
         persistReviewerState();
         const section = reviewerSection();
         if (section) syncUnassignReviewerButtons(section);
-      } else if (action === "unassign-reviewer") {
-        pendingReviewers.delete(key);
-        pendingUnassignedReviewers.add(key);
-        persistReviewerState();
-        const section = reviewerSection();
-        if (section) syncUnassignReviewerButtons(section);
-      } else if (action === "assign") {
-        pendingUnassignedUsers.delete(key);
-        pendingAssignedUsers.set(key, username);
-        persistAssignmentState();
-        const section = assigneeSection();
-        if (section) syncUnassignButtons(section);
-      } else if (action === "unassign") {
-        pendingAssignedUsers.delete(key);
-        pendingUnassignedUsers.add(key);
+      } else {
         persistAssignmentState();
         const section = assigneeSection();
         if (section) syncUnassignButtons(section);
       }
     }, viewport);
+  }
+
+  function postAssignmentCommand(button, action, username) {
+    postAssignmentCommands(button, action, [username]);
   }
 
   function postLabelCommands(button, action, labels) {
@@ -1932,9 +2056,11 @@
       assignmentPicker &&
       !assignmentPicker.hidden &&
       !assignmentPicker.contains(event.target) &&
-      !event.target.closest(".docs-pr-hh-assign")
+      !event.target.closest(
+        ".docs-pr-hh-assign, .docs-pr-hh-assign-reviewer"
+      )
     ) {
-      hideAssignmentPicker();
+      hideAssignmentPicker(false);
     }
     if (
       labelPicker &&

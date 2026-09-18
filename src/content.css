@@ -447,6 +447,35 @@
   outline: none;
 }
 
+.docs-pr-hh-user-option.is-selected {
+  color: var(--fgColor-accent, #0969da);
+  font-weight: 600;
+  background: var(--bgColor-accent-muted, #ddf4ff);
+}
+
+.docs-pr-hh-user-option.is-selected:hover,
+.docs-pr-hh-user-option.is-selected:focus-visible {
+  color: var(--fgColor-onEmphasis, #ffffff);
+  background: var(--bgColor-accent-emphasis, #0969da);
+}
+
+.docs-pr-hh-user-selected-indicator {
+  display: none;
+  margin-left: auto;
+  color: var(--fgColor-accent, #0969da);
+  font-weight: 700;
+}
+
+.docs-pr-hh-user-option.is-selected .docs-pr-hh-user-selected-indicator {
+  display: inline;
+}
+
+.docs-pr-hh-user-option.is-selected:hover .docs-pr-hh-user-selected-indicator,
+.docs-pr-hh-user-option.is-selected:focus-visible
+  .docs-pr-hh-user-selected-indicator {
+  color: inherit;
+}
+
 .docs-pr-hh-user-avatar {
   flex: 0 0 32px;
   width: 32px;
@@ -486,6 +515,37 @@
 .docs-pr-hh-user-message {
   padding: 8px;
   color: var(--fgColor-muted, #656d76);
+}
+
+.docs-pr-hh-assignment-apply {
+  width: 100%;
+  margin-top: 8px;
+  padding: 5px 10px;
+  color: var(--button-primary-fgColor-rest, #ffffff);
+  font: 600 13px/20px -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Noto Sans", Helvetica, Arial, sans-serif;
+  letter-spacing: 0;
+  cursor: pointer;
+  background: var(--button-primary-bgColor-rest, #1f883d);
+  border: 1px solid
+    var(--button-primary-borderColor-rest, rgba(31, 35, 40, 0.15));
+  border-radius: 6px;
+}
+
+.docs-pr-hh-assignment-apply:hover:not(:disabled) {
+  background: var(--button-primary-bgColor-hover, #1a7f37);
+}
+
+.docs-pr-hh-assignment-apply:focus-visible {
+  outline: 2px solid var(--focus-outlineColor, #0969da);
+  outline-offset: 2px;
+}
+
+.docs-pr-hh-assignment-apply:disabled {
+  color: var(--fgColor-muted, #656d76);
+  cursor: not-allowed;
+  background: var(--bgColor-disabled, #afb8c133);
+  border-color: var(--borderColor-default, #d0d7de);
 }
 
 .docs-pr-hh-unassign,
@@ -649,5 +709,59 @@
     background: var(--bgColor-default, #0d1117);
     border-color: var(--borderColor-default, #30363d);
     color: var(--fgColor-default, #e6edf3);
+  }
+}
+
+@media (forced-colors: active) {
+  .docs-pr-hh-assignment-picker,
+  .docs-pr-hh-label-picker {
+    color: CanvasText;
+    background: Canvas;
+    border-color: CanvasText;
+    box-shadow: none;
+  }
+
+  .docs-pr-hh-user-search,
+  .docs-pr-hh-label-search,
+  .docs-pr-hh-label-input {
+    color: CanvasText;
+    background: Canvas;
+    border-color: CanvasText;
+  }
+
+  .docs-pr-hh-user-option.is-selected,
+  .docs-pr-hh-label-option.is-selected {
+    color: HighlightText;
+    background: Highlight;
+  }
+
+  .docs-pr-hh-user-option:focus-visible,
+  .docs-pr-hh-label-option:focus-visible,
+  .docs-pr-hh-custom-label-toggle:focus-visible,
+  .docs-pr-hh-assignment-apply:focus-visible,
+  .docs-pr-hh-label-apply:focus-visible,
+  .docs-pr-hh-label-submit:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .docs-pr-hh-assignment-apply,
+  .docs-pr-hh-label-apply,
+  .docs-pr-hh-label-submit,
+  .docs-pr-hh-custom-label-toggle {
+    color: ButtonText;
+    background: ButtonFace;
+    border-color: ButtonText;
+  }
+
+  .docs-pr-hh-assignment-apply:disabled,
+  .docs-pr-hh-label-apply:disabled {
+    color: GrayText;
+    border-color: GrayText;
+  }
+
+  .docs-pr-hh-label-swatch {
+    border-color: CanvasText;
+    forced-color-adjust: none;
   }
 }

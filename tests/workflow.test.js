@@ -8,12 +8,14 @@ const {
   isReopenControlLabel,
   isAssigneeControlLabel,
   assignmentCommand,
+  assignmentCommands,
   isLearnBuildBot,
   hasPRMergerLabel,
   labelCommand,
   labelCommands,
   labelColorFromStyle,
   nextPickerOptionIndex,
+  nextDialogFocusIndex,
   nextWorkflowCommand,
   commandForLatestComment,
   latestWorkflowCommand,
@@ -194,6 +196,19 @@ test("formats reviewer automation commands with GitHub mentions", () => {
   );
 });
 
+test("formats multiple assignments as one deduplicated comment", () => {
+  assert.equal(
+    assignmentCommands("assign", ["octocat", "@hubot", "Octocat"]),
+    "#assign: @octocat\n#assign: @hubot"
+  );
+  assert.equal(
+    assignmentCommands("assign-reviewer", ["octocat", "hubot"]),
+    "#assign-reviewer: @octocat\n#assign-reviewer: @hubot"
+  );
+  assert.equal(assignmentCommands("assign", []), null);
+  assert.equal(assignmentCommands("remove", ["octocat"]), null);
+});
+
 test("identifies Learn Build reviewer bots without excluding users", () => {
   assert.equal(isLearnBuildBot("learn-build-service-prod-03[bot]"), true);
   assert.equal(isLearnBuildBot("learn_build_release"), true);
@@ -232,6 +247,15 @@ test("moves through picker options with wrapping keyboard navigation", () => {
   assert.equal(nextPickerOptionIndex(1, 3, "End"), 2);
   assert.equal(nextPickerOptionIndex(1, 3, "Enter"), 1);
   assert.equal(nextPickerOptionIndex(0, 0, "ArrowDown"), -1);
+});
+
+test("cycles focus within an open dialog", () => {
+  assert.equal(nextDialogFocusIndex(0, 3, false), 1);
+  assert.equal(nextDialogFocusIndex(2, 3, false), 0);
+  assert.equal(nextDialogFocusIndex(0, 3, true), 2);
+  assert.equal(nextDialogFocusIndex(-1, 3, false), 0);
+  assert.equal(nextDialogFocusIndex(-1, 3, true), 2);
+  assert.equal(nextDialogFocusIndex(0, 0, false), -1);
 });
 
 test("extracts repository label colors from GitHub styles", () => {
