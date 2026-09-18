@@ -21,6 +21,7 @@
   let labelPicker = null;
   let labelPickerRepository = null;
   let labelPickerController = null;
+  let labelPickerReturnFocus = null;
   let loadedLabelKey = null;
   let loadingLabelKey = null;
   let lastEligibilityLog = null;
@@ -30,6 +31,7 @@
   const pendingUnassignedReviewers = new Set();
   const pendingAddedLabels = new Map();
   const pendingRemovedLabels = new Set();
+  const selectedRepositoryLabels = new Map();
   const repositoryLabelCache = new Map();
 
   // Current settings, refreshed live so GitHub navigation between repositories
@@ -227,7 +229,8 @@
     );
   }
 
-  function hideLabelPicker() {
+  function hideLabelPicker(restoreFocus = true) {
+    const returnFocus = labelPickerReturnFocus;
     if (labelPicker) {
       labelPicker.hidden = true;
       const custom = labelPicker.querySelector(".docs-pr-hh-custom-label-row");
@@ -237,8 +240,66 @@
       if (custom) custom.hidden = true;
       if (customToggle) customToggle.setAttribute("aria-expanded", "false");
     }
+    selectedRepositoryLabels.clear();
+    labelPickerReturnFocus = null;
     const button = document.querySelector(".docs-pr-hh-add-label");
     if (button) button.setAttribute("aria-expanded", "false");
+    if (restoreFocus && returnFocus?.isConnected) {
+      returnFocus.focus({ preventScroll: true });
+    }
+  }
+
+  function labelPickerOptions() {
+    return Array.from(
+      labelPicker.querySelectorAll(".docs-pr-hh-label-option")
+    );
+  }
+
+  function updateLabelPickerApplyButton() {
+    const apply = labelPicker.querySelector(".docs-pr-hh-label-apply");
+    const count = selectedRepositoryLabels.size;
+    apply.disabled = count === 0;
+    apply.textContent = count ? `Apply (${count})` : "Apply";
+  }
+
+  function toggleRepositoryLabel(option, name) {
+    const key = name.toLowerCase();
+    const selected = !selectedRepositoryLabels.has(key);
+    if (selected) selectedRepositoryLabels.set(key, name);
+    else selectedRepositoryLabels.delete(key);
+    option.classList.toggle("is-selected", selected);
+    option.setAttribute("aria-selected", String(selected));
+    updateLabelPickerApplyButton();
+  }
+
+  function handleLabelPickerKeydown(event) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      hideLabelPicker();
+      return;
+    }
+    const search = event.target.closest(".docs-pr-hh-label-search");
+    const option = event.target.closest(".docs-pr-hh-label-option");
+    if (!search && !option) return;
+    const options = labelPickerOptions();
+    if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+      event.preventDefault();
+      const nextIndex = WORKFLOW.nextPickerOptionIndex(
+        options.indexOf(option),
+        options.length,
+        event.key
+      );
+      if (nextIndex >= 0) options[nextIndex].focus();
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const target = option || options[0];
+      if (target) {
+        target.click();
+        target.focus();
+      }
+    }
   }
 
   function parseRepositoryLabels(html) {
@@ -308,6 +369,10 @@
       option.type = "button";
       option.className = "docs-pr-hh-label-option";
       option.setAttribute("role", "option");
+      option.dataset.label = name;
+      const selected = selectedRepositoryLabels.has(name.toLowerCase());
+      option.classList.toggle("is-selected", selected);
+      option.setAttribute("aria-selected", String(selected));
       const swatch = document.createElement("span");
       swatch.className = "docs-pr-hh-label-swatch";
       swatch.style.backgroundColor = color;
@@ -316,16 +381,17 @@
       const text = document.createElement("span");
       text.textContent = name;
       option.appendChild(text);
-      option.addEventListener("click", () => {
-        hideLabelPicker();
-        postLabelCommand(
-          document.querySelector(".docs-pr-hh-add-label"),
-          "label",
-          name
-        );
-      });
+      const indicator = document.createElement("span");
+      indicator.className = "docs-pr-hh-label-selected-indicator";
+      indicator.setAttribute("aria-hidden", "true");
+      indicator.textContent = "✓";
+      option.appendChild(indicator);
+      option.addEventListener("click", () =>
+        toggleRepositoryLabel(option, name)
+      );
       list.appendChild(option);
     });
+    updateLabelPickerApplyButton();
   }
 
   function getLabelPicker() {
@@ -335,6 +401,7 @@
     labelPicker.hidden = true;
     labelPicker.setAttribute("role", "dialog");
     labelPicker.setAttribute("aria-label", "Add a label");
+    labelPicker.addEventListener("keydown", handleLabelPickerKeydown);
 
     const search = document.createElement("input");
     search.type = "search";
@@ -347,15 +414,27 @@
         search.value
       )
     );
-    search.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") hideLabelPicker();
-    });
     labelPicker.appendChild(search);
 
     const list = document.createElement("div");
     list.className = "docs-pr-hh-label-list";
     list.setAttribute("role", "listbox");
+    list.setAttribute("aria-multiselectable", "true");
     labelPicker.appendChild(list);
+
+    const apply = document.createElement("button");
+    apply.type = "button";
+    apply.className = "docs-pr-hh-label-apply";
+    apply.textContent = "Apply";
+    apply.disabled = true;
+    apply.addEventListener("click", () => {
+      const labels = Array.from(selectedRepositoryLabels.values());
+      if (labels.length === 0) return;
+      const button = document.querySelector(".docs-pr-hh-add-label");
+      hideLabelPicker();
+      postLabelCommands(button, "label", labels);
+    });
+    labelPicker.appendChild(apply);
 
     const customToggle = document.createElement("button");
     customToggle.type = "button";
@@ -374,9 +453,9 @@
     input.maxLength = 200;
     input.setAttribute("aria-label", "Custom label name");
     input.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") hideLabelPicker();
       if (event.key === "Enter") {
         event.preventDefault();
+        event.stopPropagation();
         custom.querySelector(".docs-pr-hh-label-submit").click();
       }
     });
@@ -422,6 +501,9 @@
     if (!repo) return;
     const repositoryKey = repo.full.toLowerCase();
     labelPickerRepository = repositoryKey;
+    labelPickerReturnFocus = button;
+    selectedRepositoryLabels.clear();
+    updateLabelPickerApplyButton();
     const rect = button.getBoundingClientRect();
     picker.style.top = `${window.scrollY + rect.bottom + 6}px`;
     picker.style.left = `${Math.max(
@@ -1099,7 +1181,7 @@
     const section = labelsSection(heading);
     if (!heading || !section) {
       if (existing) existing.remove();
-      hideLabelPicker();
+      hideLabelPicker(false);
       return;
     }
     ensureLabelStateLoaded();
@@ -1573,8 +1655,8 @@
     }, viewport);
   }
 
-  function postLabelCommand(button, action, label) {
-    const command = WORKFLOW.labelCommand(action, label);
+  function postLabelCommands(button, action, labels) {
+    const command = WORKFLOW.labelCommands(action, labels);
     const field = findCommentField();
     if (!command || !field) {
       announceAssignmentStatus(button, "Open the Write tab first.");
@@ -1587,20 +1669,27 @@
     const value = before + separator + command;
   setFieldValue(field, value, value.length, false);
   preserveViewport(viewport.scrollX, viewport.scrollY);
-    announceAssignmentStatus(button, `Posting ${command}...`);
-    submitAssignmentWhenReady(field, button, command, () => {
-      const key = label.toLowerCase();
-      if (action === "label") {
-        pendingRemovedLabels.delete(key);
-        pendingAddedLabels.set(key, label);
-      } else {
-        pendingAddedLabels.delete(key);
-        pendingRemovedLabels.add(key);
-      }
+    const status = labels.length === 1 ? command : `${labels.length} label commands`;
+    announceAssignmentStatus(button, `Posting ${status}...`);
+    submitAssignmentWhenReady(field, button, status, () => {
+      labels.forEach((label) => {
+        const key = label.toLowerCase();
+        if (action === "label") {
+          pendingRemovedLabels.delete(key);
+          pendingAddedLabels.set(key, label);
+        } else {
+          pendingAddedLabels.delete(key);
+          pendingRemovedLabels.add(key);
+        }
+      });
       persistLabelState();
       const section = labelsSection();
       if (section) syncRemoveLabelButtons(section);
     }, viewport);
+  }
+
+  function postLabelCommand(button, action, label) {
+    postLabelCommands(button, action, [label]);
   }
 
   function postWorkflowComment(button, requestedCommand = null) {
@@ -1853,7 +1942,7 @@
       !labelPicker.contains(event.target) &&
       !event.target.closest(".docs-pr-hh-add-label")
     ) {
-      hideLabelPicker();
+      hideLabelPicker(false);
     }
   });
   const pageObserver = new MutationObserver(queueSignOffSync);

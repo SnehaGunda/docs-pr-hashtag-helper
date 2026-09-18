@@ -28,6 +28,7 @@ automation.
 | `#label:"custom label text"` | Adds a custom label up to 200 characters (shorter recommended). | Public and private |
 | `#remove-label:"custom label text"` | Removes a custom label. | Public and private |
 | `#assign:<GitHub account>` | Adds a GitHub account to **Assignees**. The account must be a valid contributor in the repo. | Public and private |
+| `#unassign:<GitHub account>` | Removes a GitHub account from **Assignees**. | Public and private |
 | `#reassign:<GitHub account>` | Removes all current assignees, then adds a GitHub account to **Assignees**. | Public and private |
 | `#assign-reviewer:<GitHub account>` | Adds a GitHub account to **Reviewers**. The account must be a valid contributor in the repo. | Public and private |
 | `#unassign-reviewer:<GitHub account>` | Removes a GitHub account from **Reviewers**. | Public and private |
@@ -38,17 +39,17 @@ automation.
 
 A **Manifest V3 content script** that:
 
-1. Shows a green **sign-off to merge** shortcut directly beside GitHub's
+1. Shows a green **Merge with PRMerger** shortcut directly beside GitHub's
   **Merging is blocked** status after all required checks pass. The button adds
   `#sign-off` to the comment editor and submits it through GitHub's normal
-  **Comment** button, then immediately becomes a light-yellow **hold-off
-  merge** button in the same location. Selecting `#hold-off` immediately turns
-  it back into **sign-off to merge**. On initial load, the extension finds the
+  **Comment** button, then immediately becomes a green **Hold off merge** action
+  in the same location. Selecting `#hold-off` immediately turns it back into
+  **Merge with PRMerger**. On initial load, the extension finds the
   latest posted `#sign-off` or `#hold-off` comment and displays the opposite
   action. A newly submitted command and its next action are stored locally per
   pull request, so the state survives a refresh until the comment appears in
   the timeline. When no workflow comment or pending action exists, passed
-  checks display **sign-off to merge**. The button never bypasses GitHub
+  checks display **Merge with PRMerger**. The button never bypasses GitHub
   permissions or PRMerger authorization.
 2. Shows **reopen pull request** immediately before GitHub's **Comment** button
   when a pull request is closed without being merged and GitHub doesn't already
@@ -63,12 +64,13 @@ A **Manifest V3 content script** that:
   comments.
 4. Adds an **Add** control beside **Labels**. The expandable menu lists
   available repository labels with their colors and supports filtering. Select
-  a label or use **Add custom label** to post `#label:"label name"`; the remove
-  button appears only beside custom labels added through the extension and
-  posts `#remove-label:"label name"`.
-  Predefined repository labels never receive a remove control. Pending changes
-  appear immediately and are stored locally per pull request until GitHub
-  reflects the update.
+  one or more labels, then choose **Apply** to post all corresponding
+  `#label:"label name"` commands in one comment. Use the arrow keys to move
+  through results, **Enter** to select, and **Escape** to close the menu and
+  return focus to **Add**. Use **Add custom label** for a label that isn't in
+  the repository list. A remove button appears beside labels added through the
+  extension and posts `#remove-label:"label name"`. Pending changes appear
+  immediately and are stored locally per pull request.
 
 Design choices:
 
@@ -105,6 +107,7 @@ Open the options page from `edge://extensions` → the extension → **Details**
 ```text
 docs-pr-hashtag-helper/
 ├── manifest.json        # MV3 extension manifest
+├── manifest.firefox.json # Firefox-specific MV3 manifest
 ├── src/
 │   ├── commands.js      # Options-page command reference
 │   ├── config.js        # Settings + per-repo activation logic
@@ -115,6 +118,9 @@ docs-pr-hashtag-helper/
 │   ├── options.js
 │   └── options.css
 ├── icons/               # Generated PNG icons (16/32/48/128)
+├── tests/
+│   ├── config.test.js     # Repository-scope and storage tests
+│   └── workflow.test.js   # Command and workflow tests
 ├── tools/
 │   ├── generate_icons.py  # Regenerates the icon set
 │   └── package.py         # Builds the store-ready ZIP into dist/
@@ -184,8 +190,8 @@ button, open it and share the message.
 ### Step 3 — Try it
 
 1. Open a GitHub pull request on a repo that uses the PRMerger app.
-1. Looks for the **Assign** and **Add** buttons and try them out.
-1. If the status checks have passed, look for the **Sign-off to merge** button and, if you're ready to actually sign off on the PR, select it.
+1. Look for the **Assign** and **Add** buttons and try them out.
+1. If the status checks have passed, look for the **Merge with PRMerger** action and, if you're ready to actually sign off on the PR, select `#sign-off`.
 
 ### Step 4 (optional) — Choose where it runs
 

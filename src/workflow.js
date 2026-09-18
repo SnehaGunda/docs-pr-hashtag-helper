@@ -116,6 +116,31 @@
     return `#${action}:"${name}"`;
   }
 
+  function labelCommands(action, labels) {
+    const commands = new Map();
+    Array.from(labels || []).forEach((label) => {
+      const command = labelCommand(action, label);
+      const key = String(label || "").trim().toLowerCase();
+      if (command && !commands.has(key)) commands.set(key, command);
+    });
+    return Array.from(commands.values()).join("\n") || null;
+  }
+
+  function nextPickerOptionIndex(currentIndex, optionCount, key) {
+    if (optionCount < 1) return -1;
+    if (key === "Home") return 0;
+    if (key === "End") return optionCount - 1;
+    if (key === "ArrowDown") {
+      return currentIndex < 0 ? 0 : (currentIndex + 1) % optionCount;
+    }
+    if (key === "ArrowUp") {
+      return currentIndex < 0
+        ? optionCount - 1
+        : (currentIndex - 1 + optionCount) % optionCount;
+    }
+    return currentIndex;
+  }
+
   function labelColorFromStyle(style) {
     const values = ["r", "g", "b"].map((channel) => {
       const match = String(style || "").match(
@@ -190,7 +215,9 @@
     isLearnBuildBot,
     hasPRMergerLabel,
     labelCommand,
+    labelCommands,
     labelColorFromStyle,
+    nextPickerOptionIndex,
     nextWorkflowCommand,
     commandForLatestComment,
     latestWorkflowCommand,
