@@ -1221,15 +1221,11 @@
   function updateSignOffButtonState(button) {
     const action = WORKFLOW.mergeBoxAction(
       currentPullRequestLabels(),
-      areSignOffChecksComplete()
+      areSignOffChecksComplete(),
+      currentWorkflowCommand()
     );
     if (!action) return;
     const command = action.command;
-    if (workflowCommandOverride === command) {
-      workflowCommandOverride = null;
-      pendingPostedWorkflowCommand = null;
-      persistWorkflowCommand(null);
-    }
     button.disabled = Boolean(action.disabled);
     button.textContent = command;
     button.dataset.command = command;
@@ -1293,10 +1289,6 @@
         announceSignOffStatus(button, `Posted ${command}.`);
         return;
       }
-      workflowCommandOverride = WORKFLOW.nextWorkflowCommand(command);
-      pendingPostedWorkflowCommand = command;
-      persistWorkflowCommand(workflowCommandOverride, command);
-      updateSignOffButtonState(button);
       announceSignOffStatus(button, `Posted ${command}.`);
       return;
     }
@@ -1306,6 +1298,11 @@
         50
       );
       return;
+    }
+    if (command !== "#please-open") {
+      workflowCommandOverride = null;
+      pendingPostedWorkflowCommand = null;
+      persistWorkflowCommand(null);
     }
     updateSignOffButtonState(button);
     announceSignOffStatus(button, "Could not find GitHub's Comment button.");
@@ -1464,6 +1461,12 @@
 
     setFieldValue(field, value, caret);
     announceSignOffStatus(button, `Posting ${trigger}...`);
+    if (trigger !== "#please-open") {
+      workflowCommandOverride = WORKFLOW.nextWorkflowCommand(trigger);
+      pendingPostedWorkflowCommand = trigger;
+      persistWorkflowCommand(workflowCommandOverride, trigger);
+      updateSignOffButtonState(button);
+    }
     submitCommentWhenReady(field, button, trigger);
   }
 

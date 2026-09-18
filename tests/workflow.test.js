@@ -57,6 +57,22 @@ test("describes the merge box action from PRMerger labels", () => {
   assert.equal(mergeBoxAction([]), null);
 });
 
+test("uses a pending workflow command before GitHub updates labels", () => {
+  assert.deepEqual(
+    mergeBoxAction(["do-not-merge"], true, "#hold-off"),
+    {
+      command: "#hold-off",
+      title: "Hold off merge",
+      description: "Comment #hold-off to cancel merge.",
+      icon: "hand"
+    }
+  );
+  assert.equal(
+    mergeBoxAction(["ready-to-merge"], true, "#sign-off").command,
+    "#sign-off"
+  );
+});
+
 test("disables sign-off until GitHub reports completed checks", () => {
   assert.deepEqual(mergeBoxAction(["do-not-merge"], false), {
     command: "#sign-off",
