@@ -11,7 +11,9 @@ const {
   isLearnBuildBot,
   hasPRMergerLabel,
   labelCommand,
+  labelCommands,
   labelColorFromStyle,
+  nextPickerOptionIndex,
   nextWorkflowCommand,
   commandForLatestComment,
   latestWorkflowCommand,
@@ -210,6 +212,26 @@ test("formats custom label automation commands", () => {
   assert.equal(labelCommand("label", 'bad"label'), null);
   assert.equal(labelCommand("remove", "needs review"), null);
   assert.equal(labelCommand("label", "x".repeat(201)), null);
+});
+
+test("formats multiple labels as one deduplicated comment", () => {
+  assert.equal(
+    labelCommands("label", ["documentation", "needs review", "Documentation"]),
+    '#label:"documentation"\n#label:"needs review"'
+  );
+  assert.equal(labelCommands("label", []), null);
+  assert.equal(labelCommands("remove", ["documentation"]), null);
+});
+
+test("moves through picker options with wrapping keyboard navigation", () => {
+  assert.equal(nextPickerOptionIndex(-1, 3, "ArrowDown"), 0);
+  assert.equal(nextPickerOptionIndex(-1, 3, "ArrowUp"), 2);
+  assert.equal(nextPickerOptionIndex(2, 3, "ArrowDown"), 0);
+  assert.equal(nextPickerOptionIndex(0, 3, "ArrowUp"), 2);
+  assert.equal(nextPickerOptionIndex(1, 3, "Home"), 0);
+  assert.equal(nextPickerOptionIndex(1, 3, "End"), 2);
+  assert.equal(nextPickerOptionIndex(1, 3, "Enter"), 1);
+  assert.equal(nextPickerOptionIndex(0, 0, "ArrowDown"), -1);
 });
 
 test("extracts repository label colors from GitHub styles", () => {
