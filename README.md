@@ -58,10 +58,12 @@ A **Manifest V3 content script** that:
   control.
 3. Adds **Assign** controls beside **Assignees** and **Reviewers**. Entering a
   search term displays matching GitHub accounts with their avatar, public full
-  name when available, and username. Selecting an account posts the
-  corresponding `#assign` or `#assign-reviewer` PRMerger comment. Compact
-  remove buttons beside people post `#unassign` or `#unassign-reviewer`
-  comments.
+  name when available, and username. Select one or more accounts, then choose
+  **Apply** to post all corresponding `#assign` or `#assign-reviewer` commands
+  in one PRMerger comment. Use the arrow keys to move through results,
+  **Enter** to select, and **Escape** to close the menu and return focus to
+  **Assign**. Compact remove buttons beside people post `#unassign` or
+  `#unassign-reviewer` comments.
 4. Adds an **Add** control beside **Labels**. The expandable menu lists
   available repository labels with their colors and supports filtering. Select
   one or more labels, then choose **Apply** to post all corresponding
@@ -71,6 +73,10 @@ A **Manifest V3 content script** that:
   the repository list. A remove button appears beside labels added through the
   extension and posts `#remove-label:"label name"`. Pending changes appear
   immediately and are stored locally per pull request.
+
+Both menus keep keyboard focus inside the open dialog. Their controls and
+selection states also use Windows forced-colors system colors when high
+contrast mode is active.
 
 Design choices:
 

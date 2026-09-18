@@ -89,6 +89,16 @@
     return `#${action}: @${login}`;
   }
 
+  function assignmentCommands(action, usernames) {
+    const commands = new Map();
+    Array.from(usernames || []).forEach((username) => {
+      const command = assignmentCommand(action, username);
+      const key = String(username || "").trim().replace(/^@/, "").toLowerCase();
+      if (command && !commands.has(key)) commands.set(key, command);
+    });
+    return Array.from(commands.values()).join("\n") || null;
+  }
+
   function isLearnBuildBot(username, displayName = "") {
     return [username, displayName].some((value) =>
       /(?:^|[^a-z])learn[\s_-]*build(?:[^a-z]|$)/i.test(String(value || ""))
@@ -139,6 +149,14 @@
         : (currentIndex - 1 + optionCount) % optionCount;
     }
     return currentIndex;
+  }
+
+  function nextDialogFocusIndex(currentIndex, focusableCount, shiftKey) {
+    if (focusableCount < 1) return -1;
+    if (currentIndex < 0) return shiftKey ? focusableCount - 1 : 0;
+    return shiftKey
+      ? (currentIndex - 1 + focusableCount) % focusableCount
+      : (currentIndex + 1) % focusableCount;
   }
 
   function labelColorFromStyle(style) {
@@ -212,12 +230,14 @@
     isReopenControlLabel,
     isAssigneeControlLabel,
     assignmentCommand,
+    assignmentCommands,
     isLearnBuildBot,
     hasPRMergerLabel,
     labelCommand,
     labelCommands,
     labelColorFromStyle,
     nextPickerOptionIndex,
+    nextDialogFocusIndex,
     nextWorkflowCommand,
     commandForLatestComment,
     latestWorkflowCommand,
