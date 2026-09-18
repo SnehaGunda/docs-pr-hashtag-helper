@@ -218,8 +218,6 @@
 .docs-pr-hh-label-picker {
   position: absolute;
   z-index: 2147483647;
-  display: flex;
-  gap: 6px;
   width: min(320px, calc(100vw - 16px));
   padding: 8px;
   background: var(--bgColor-default, #ffffff);
@@ -232,6 +230,92 @@
 }
 
 .docs-pr-hh-label-picker[hidden] {
+  display: none;
+}
+
+.docs-pr-hh-label-search {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 5px 8px;
+  color: var(--fgColor-default, #1f2328);
+  font: inherit;
+  background: var(--bgColor-default, #ffffff);
+  border: 1px solid var(--borderColor-default, #d0d7de);
+  border-radius: 6px;
+  outline: none;
+}
+
+.docs-pr-hh-label-search:focus {
+  border-color: var(--focus-outlineColor, #0969da);
+  box-shadow: 0 0 0 2px var(--focus-outlineColor, #0969da);
+}
+
+.docs-pr-hh-label-list {
+  max-height: 260px;
+  margin: 8px 0;
+  overflow-y: auto;
+}
+
+.docs-pr-hh-label-option,
+.docs-pr-hh-custom-label-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  color: var(--fgColor-default, #1f2328);
+  font: 400 13px/20px -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Noto Sans", Helvetica, Arial, sans-serif;
+  letter-spacing: 0;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+}
+
+.docs-pr-hh-label-option:hover,
+.docs-pr-hh-label-option:focus-visible,
+.docs-pr-hh-custom-label-toggle:hover,
+.docs-pr-hh-custom-label-toggle:focus-visible {
+  background: var(--bgColor-muted, #f6f8fa);
+  outline: none;
+}
+
+.docs-pr-hh-label-swatch {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--borderColor-translucent, rgba(31, 35, 40, 0.15));
+  border-radius: 50%;
+}
+
+.docs-pr-hh-label-message {
+  padding: 8px;
+  color: var(--fgColor-muted, #656d76);
+}
+
+.docs-pr-hh-custom-label-toggle {
+  color: var(--fgColor-accent, #0969da);
+  font-weight: 600;
+  background: var(--bgColor-accent-muted, #ddf4ff);
+  border: 1px solid var(--borderColor-accent-muted, #54aeff66);
+  border-radius: 6px;
+}
+
+.docs-pr-hh-custom-label-toggle:hover,
+.docs-pr-hh-custom-label-toggle:focus-visible {
+  background: var(--bgColor-accent-emphasis, #0969da);
+  color: var(--fgColor-onEmphasis, #ffffff);
+}
+
+.docs-pr-hh-custom-label-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.docs-pr-hh-custom-label-row[hidden] {
   display: none;
 }
 
@@ -508,7 +592,10 @@
 
 @media (prefers-color-scheme: dark) {
   .docs-pr-hh-assignment-picker,
-  .docs-pr-hh-user-search {
+  .docs-pr-hh-label-picker,
+  .docs-pr-hh-user-search,
+  .docs-pr-hh-label-search,
+  .docs-pr-hh-label-input {
     background: var(--bgColor-default, #0d1117);
     border-color: var(--borderColor-default, #30363d);
     color: var(--fgColor-default, #e6edf3);

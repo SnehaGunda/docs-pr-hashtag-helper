@@ -11,6 +11,7 @@ const {
   isLearnBuildBot,
   hasPRMergerLabel,
   labelCommand,
+  labelColorFromStyle,
   nextWorkflowCommand,
   commandForLatestComment,
   latestWorkflowCommand,
@@ -209,6 +210,16 @@ test("formats custom label automation commands", () => {
   assert.equal(labelCommand("label", 'bad"label'), null);
   assert.equal(labelCommand("remove", "needs review"), null);
   assert.equal(labelCommand("label", "x".repeat(201)), null);
+});
+
+test("extracts repository label colors from GitHub styles", () => {
+  assert.equal(
+    labelColorFromStyle("--label-r:215;--label-g:58;--label-b:74"),
+    "rgb(215, 58, 74)"
+  );
+  assert.equal(labelColorFromStyle("--label-r:256;--label-g:0;--label-b:0"), null);
+  assert.equal(labelColorFromStyle("--label-r:1000;--label-g:0;--label-b:0"), null);
+  assert.equal(labelColorFromStyle("color: red"), null);
 });
 
 test("recognizes PRMerger repository labels", () => {
