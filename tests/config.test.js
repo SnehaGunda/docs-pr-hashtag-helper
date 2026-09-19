@@ -87,3 +87,59 @@ test("persists custom label state separately by pull request", async () => {
   assert.equal(store.assignmentStates, undefined);
   assert.equal(store.reviewerStates, undefined);
 });
+
+test("persists pending workflow command history baseline", async () => {
+  const { config } = loadConfig();
+  const prKey = "microsoftdocs/repo#42";
+
+  await config.setWorkflowCommand(prKey, "#hold-off", "#sign-off", 2);
+
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(await config.getWorkflowCommand(prKey))),
+    {
+      command: "#hold-off",
+      postedCommand: "#sign-off",
+      postedCommandCount: 2
+    }
+  );
+});
+
+test("isolates workflow state by pull request and clears it independently", async () => {
+  const { config } = loadConfig();
+  const firstPr = "microsoftdocs/repo#41";
+  const secondPr = "microsoftdocs/repo#42";
+
+  await config.setWorkflowCommand(firstPr, "#hold-off", "#sign-off", 0);
+  await config.setWorkflowCommand(secondPr, "#sign-off", "#hold-off", 1);
+  await config.setWorkflowCommand(firstPr, null);
+
+  assert.equal(await config.getWorkflowCommand(firstPr), null);
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(await config.getWorkflowCommand(secondPr))),
+    {
+      command: "#sign-off",
+      postedCommand: "#hold-off",
+      postedCommandCount: 1
+    }
+  );
+});
+
+test("persists and isolates close and reopen state by pull request", async () => {
+  const { config } = loadConfig();
+  const firstPr = "microsoftdocs/repo#41";
+  const secondPr = "microsoftdocs/repo#42";
+
+  await config.setClosureCommand(firstPr, "#please-close", "#please-open", 0);
+  await config.setClosureCommand(secondPr, "#please-open", "#please-close", 1);
+  await config.setClosureCommand(firstPr, null);
+
+  assert.equal(await config.getClosureCommand(firstPr), null);
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(await config.getClosureCommand(secondPr))),
+    {
+      command: "#please-open",
+      postedCommand: "#please-close",
+      postedCommandCount: 1
+    }
+  );
+});

@@ -6,6 +6,8 @@ const {
   mergeBoxAction,
   isClosedUnmergedText,
   isReopenControlLabel,
+  isClosureControlLabel,
+  shouldHideNativeReopenControl,
   isAssigneeControlLabel,
   assignmentCommand,
   assignmentCommands,
@@ -18,7 +20,17 @@ const {
   nextDialogFocusIndex,
   nextWorkflowCommand,
   commandForLatestComment,
+  workflowCommandHistory,
+  closureCommandHistory,
+  nextClosureCommand,
   latestWorkflowCommand,
+  hasNewPostedWorkflowCommand,
+  workflowStateAfterPost,
+  resolveWorkflowCommand,
+  closureStateAfterPost,
+  resolveClosureCommand,
+  isPullRequestAuthor,
+  isDraftPullRequestState,
   containsCommand,
   areChecksComplete
 } = require("../src/workflow.js");
@@ -78,17 +90,14 @@ test("uses a pending workflow command before GitHub updates labels", () => {
   );
 });
 
-test("disables sign-off until GitHub reports completed checks", () => {
-  assert.deepEqual(mergeBoxAction(["do-not-merge"], false), {
-    command: "#sign-off",
-    title: "Not ready for sign-off",
-    description:
-      "Wait for OpenPublishing.Build, PoliCheck, and Authoring Assistant to complete before signing off.",
-    icon: "hourglass",
-    disabled: true
-  });
+test("hides sign-off until GitHub reports all checks passed", () => {
+  assert.equal(mergeBoxAction(["do-not-merge"], false), null);
+  assert.equal(
+    mergeBoxAction(["do-not-merge"], false, "#hold-off").command,
+    "#hold-off"
+  );
   assert.equal(areChecksComplete(["All checks have passed"]), true);
-  assert.equal(areChecksComplete(["4 successful checks"]), true);
+  assert.equal(areChecksComplete(["All checks passed."]), true);
   assert.equal(
     areChecksComplete(["Merging is blocked", "All checks have passed"]),
     true
@@ -99,12 +108,14 @@ test("disables sign-off until GitHub reports completed checks", () => {
   );
   assert.equal(
     areChecksComplete(["1 pending review", "4 successful checks"]),
-    true
+    false
   );
   assert.equal(
     areChecksComplete(["4 successful checks", "1 pending check"]),
     false
   );
+  assert.equal(areChecksComplete(["1 successful check"]), false);
+  assert.equal(areChecksComplete(["3 checks passed"]), false);
   assert.equal(areChecksComplete(["Checks are in progress"]), false);
   assert.equal(areChecksComplete([]), false);
 });
@@ -136,19 +147,233 @@ test("uses the latest posted workflow command", () => {
     latestWorkflowCommand(["#sign-off", "Other update", "#hold-off"]),
     "#hold-off"
   );
-  assert.equal(
-    latestWorkflowCommand(["Earlier #hold-off", "#sign-off\nThanks"]),
-    "#sign-off"
-  );
+  assert.equal(latestWorkflowCommand(["Earlier #hold-off"]), null);
+  assert.equal(latestWorkflowCommand(["#sign-off\nThanks"]), null);
   assert.equal(latestWorkflowCommand(["No workflow command"]), null);
 });
 
-test("uses the last workflow command within the latest comment", () => {
+test("returns workflow command history in timeline order", () => {
+  assert.deepEqual(
+    workflowCommandHistory([
+      "  #sign-off\n",
+      "No command here",
+      "#hold-off"
+    ]),
+    ["#sign-off", "#hold-off"]
+  );
+});
+
+test("ignores workflow command mentions that are not exact comments", () => {
+  assert.deepEqual(
+    workflowCommandHistory([
+      "#signoff",
+      "Use #sign-off when ready.",
+      "#sign-off\n#hold-off",
+      "`#sign-off`"
+    ]),
+    []
+  );
+});
+
+test("ignores PR template guidance and misspelled sign-off comments", () => {
+  const timelineBodies = [
+    "Once the pull request is finalized, type #sign-off in a new comment.",
+    "If needed, type #hold-off instead.",
+    "#signoff"
+  ];
+
+  assert.deepEqual(workflowCommandHistory(timelineBodies), []);
   assert.equal(
-    latestWorkflowCommand(["#sign-off\n#hold-off"]),
+    resolveWorkflowCommand(workflowCommandHistory(timelineBodies)).command,
+    "#sign-off"
+  );
+});
+
+test("recognizes only a newly posted pending workflow command", () => {
+  assert.equal(
+    hasNewPostedWorkflowCommand(["#sign-off", "#hold-off"], "#sign-off", 1),
+    false
+  );
+  assert.equal(
+    hasNewPostedWorkflowCommand(
+      ["#sign-off", "#hold-off", "#sign-off"],
+      "#sign-off",
+      1
+    ),
+    true
+  );
+  assert.equal(
+    hasNewPostedWorkflowCommand(["#hold-off"], "#hold-off", null),
+    true
+  );
+});
+
+test("keeps workflow command transitions stable across clicks and refreshes", () => {
+  let comments = ["#signoff", "Use #sign-off when ready."];
+  let resolved = resolveWorkflowCommand(workflowCommandHistory(comments));
+  assert.deepEqual(resolved, {
+    command: "#sign-off",
+    clearPendingState: false
+  });
+
+  const pendingSignOff = workflowStateAfterPost(
+    resolved.command,
+    workflowCommandHistory(comments)
+  );
+  assert.deepEqual(pendingSignOff, {
+    command: "#hold-off",
+    postedCommand: "#sign-off",
+    postedCommandCount: 0
+  });
+  assert.deepEqual(
+    resolveWorkflowCommand(workflowCommandHistory(comments), pendingSignOff),
+    { command: "#hold-off", clearPendingState: false }
+  );
+
+  comments = [...comments, "#sign-off"];
+  resolved = resolveWorkflowCommand(
+    workflowCommandHistory(comments),
+    pendingSignOff
+  );
+  assert.deepEqual(resolved, {
+    command: "#hold-off",
+    clearPendingState: true
+  });
+  assert.equal(
+    resolveWorkflowCommand(workflowCommandHistory(comments)).command,
     "#hold-off"
   );
+
+  const pendingHoldOff = workflowStateAfterPost(
+    resolved.command,
+    workflowCommandHistory(comments)
+  );
+  assert.equal(
+    resolveWorkflowCommand(
+      workflowCommandHistory(comments),
+      pendingHoldOff
+    ).command,
+    "#sign-off"
+  );
+
+  comments = [...comments, "#hold-off"];
+  assert.deepEqual(
+    resolveWorkflowCommand(
+      workflowCommandHistory(comments),
+      pendingHoldOff
+    ),
+    { command: "#sign-off", clearPendingState: true }
+  );
+  assert.equal(
+    resolveWorkflowCommand(workflowCommandHistory(comments)).command,
+    "#sign-off"
+  );
+});
+
+test("does not resolve pending state from an older duplicate command", () => {
+  const comments = ["#sign-off", "#hold-off"];
+  const pendingState = workflowStateAfterPost("#sign-off", comments);
+
+  assert.deepEqual(resolveWorkflowCommand(comments, pendingState), {
+    command: "#hold-off",
+    clearPendingState: false
+  });
+  assert.deepEqual(
+    resolveWorkflowCommand([...comments, "#sign-off"], pendingState),
+    { command: "#hold-off", clearPendingState: true }
+  );
+});
+
+test("clears legacy overrides and derives state from exact comments", () => {
+  assert.deepEqual(
+    resolveWorkflowCommand([], { command: "#hold-off" }),
+    { command: "#sign-off", clearPendingState: true }
+  );
+  assert.deepEqual(
+    resolveWorkflowCommand(["#sign-off"], { command: "#sign-off" }),
+    { command: "#hold-off", clearPendingState: true }
+  );
+});
+
+test("keeps close and reopen transitions stable across clicks and refreshes", () => {
+  let comments = ["Use #please-open to reopen.", "#pleaseopen"];
+  let history = closureCommandHistory(comments);
+  assert.deepEqual(history, []);
+  assert.equal(resolveClosureCommand(history).command, "#please-open");
+  assert.equal(
+    resolveClosureCommand(history, null, "#please-close").command,
+    "#please-close"
+  );
+
+  const pendingOpen = closureStateAfterPost("#please-open", history);
+  assert.deepEqual(pendingOpen, {
+    command: "#please-close",
+    postedCommand: "#please-open",
+    postedCommandCount: 0
+  });
+  assert.equal(
+    resolveClosureCommand(history, pendingOpen).command,
+    "#please-close"
+  );
+
+  comments = [...comments, "#please-open"];
+  history = closureCommandHistory(comments);
+  assert.deepEqual(resolveClosureCommand(history, pendingOpen), {
+    command: "#please-close",
+    clearPendingState: true
+  });
+  assert.equal(resolveClosureCommand(history).command, "#please-close");
+
+  const pendingClose = closureStateAfterPost("#please-close", history);
+  assert.equal(
+    resolveClosureCommand(history, pendingClose).command,
+    "#please-open"
+  );
+
+  comments = [...comments, "#please-close"];
+  history = closureCommandHistory(comments);
+  assert.deepEqual(resolveClosureCommand(history, pendingClose), {
+    command: "#please-open",
+    clearPendingState: true
+  });
+  assert.equal(resolveClosureCommand(history).command, "#please-open");
+});
+
+test("requires exact close and reopen comments", () => {
+  assert.deepEqual(
+    closureCommandHistory([
+      "#please-open ",
+      "#PLEASE-CLOSE",
+      "#pleaseopen",
+      "Text #please-close",
+      "#please-open\n#please-close"
+    ]),
+    ["#please-open", "#please-close"]
+  );
+  assert.equal(nextClosureCommand("#please-open"), "#please-close");
+  assert.equal(nextClosureCommand("#please-close"), "#please-open");
+});
+
+test("matches PR authors by exact case-insensitive login", () => {
+  assert.equal(isPullRequestAuthor("SnehaGunda", "snehagunda"), true);
+  assert.equal(isPullRequestAuthor("SnehaGunda", "other-user"), false);
+  assert.equal(isPullRequestAuthor("", "snehagunda"), false);
+  assert.equal(isPullRequestAuthor("SnehaGunda", null), false);
+});
+
+test("requires one exact workflow command per comment", () => {
+  assert.equal(latestWorkflowCommand(["#sign-off\n#hold-off"]), null);
   assert.equal(latestWorkflowCommand(["text#sign-off"]), null);
+});
+
+test("recognizes GitHub draft pull request indicators", () => {
+  assert.equal(isDraftPullRequestState(["Draft"]), true);
+  assert.equal(isDraftPullRequestState(["draft"]), true);
+  assert.equal(isDraftPullRequestState(["Draft Pull Request"]), true);
+  assert.equal(isDraftPullRequestState(["State State--draft"]), true);
+  assert.equal(isDraftPullRequestState(["Open"]), false);
+  assert.equal(isDraftPullRequestState(["Ready for review"]), false);
+  assert.equal(isDraftPullRequestState(["Draft documentation update"]), false);
 });
 
 test("recognizes closed unmerged pull requests without matching merged ones", () => {
@@ -166,6 +391,57 @@ test("recognizes native GitHub reopen controls without matching status text", ()
   assert.equal(isReopenControlLabel(" REOPEN PULL REQUEST "), true);
   assert.equal(isReopenControlLabel("Reopen requested"), false);
   assert.equal(isReopenControlLabel("This pull request is closed"), false);
+});
+
+test("recognizes native GitHub close and reopen controls", () => {
+  assert.equal(isClosureControlLabel("Reopen pull request"), true);
+  assert.equal(isClosureControlLabel("Close pull request"), true);
+  assert.equal(isClosureControlLabel("Close"), true);
+  assert.equal(isClosureControlLabel("Reopen requested"), false);
+  assert.equal(isClosureControlLabel("This pull request is closed"), false);
+});
+
+test("hides only a disabled native reopen control while please-open is available", () => {
+  assert.equal(
+    shouldHideNativeReopenControl(
+      "#please-open",
+      "Reopen pull request",
+      true,
+      null
+    ),
+    true
+  );
+  assert.equal(
+    shouldHideNativeReopenControl("#please-open", "Reopen", false, "true"),
+    true
+  );
+  assert.equal(
+    shouldHideNativeReopenControl(
+      "#please-open",
+      "Reopen pull request",
+      false,
+      "false"
+    ),
+    false
+  );
+  assert.equal(
+    shouldHideNativeReopenControl(
+      "#please-close",
+      "Reopen pull request",
+      true,
+      "true"
+    ),
+    false
+  );
+  assert.equal(
+    shouldHideNativeReopenControl(
+      "#please-open",
+      "Close pull request",
+      true,
+      "true"
+    ),
+    false
+  );
 });
 
 test("recognizes native GitHub assignee controls", () => {

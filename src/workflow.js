@@ -24,16 +24,7 @@
       commandOverride === "#sign-off" ||
       normalizedLabels.includes("do-not-merge")
     ) {
-      if (!checksComplete) {
-        return {
-          command: "#sign-off",
-          title: "Not ready for sign-off",
-          description:
-            "Wait for OpenPublishing.Build, PoliCheck, and Authoring Assistant to complete before signing off.",
-          icon: "hourglass",
-          disabled: true
-        };
-      }
+      if (!checksComplete) return null;
       const description = normalizedLabels.includes("needs-human-review")
         ? "Comment #sign-off to request review and merge."
         : normalizedLabels.includes("qualifies-for-auto-merge")
@@ -63,6 +54,25 @@
 
   function isReopenControlLabel(value) {
     return /^(?:reopen|reopen pull request)$/i.test(String(value || "").trim());
+  }
+
+  function isClosureControlLabel(value) {
+    return /^(?:(?:reopen|close)(?: pull request)?)$/i.test(
+      String(value || "").trim()
+    );
+  }
+
+  function shouldHideNativeReopenControl(
+    command,
+    label,
+    disabled,
+    ariaDisabled
+  ) {
+    return (
+      command === "#please-open" &&
+      isReopenControlLabel(label) &&
+      (Boolean(disabled) || String(ariaDisabled).toLowerCase() === "true")
+    );
   }
 
   function isAssigneeControlLabel(value) {
@@ -183,18 +193,135 @@
     return command ? nextWorkflowCommand(command) : "#sign-off";
   }
 
-  function latestWorkflowCommand(comments) {
-    for (let index = comments.length - 1; index >= 0; index -= 1) {
-      const matches = Array.from(
-        String(comments[index] || "").matchAll(
-          /(^|\s)(#sign-off|#hold-off)(?=\s|$)/gi
-        )
-      );
-      if (matches.length > 0) {
-        return matches[matches.length - 1][2].toLowerCase();
-      }
+  function workflowCommandHistory(comments) {
+    const commands = [];
+    for (const comment of comments) {
+      const match = String(comment || "")
+        .trim()
+        .match(/^(#sign-off|#hold-off)$/i);
+      if (match) commands.push(match[1].toLowerCase());
     }
-    return null;
+    return commands;
+  }
+
+  function closureCommandHistory(comments) {
+    const commands = [];
+    for (const comment of comments) {
+      const match = String(comment || "")
+        .trim()
+        .match(/^(#please-open|#please-close)$/i);
+      if (match) commands.push(match[1].toLowerCase());
+    }
+    return commands;
+  }
+
+  function nextClosureCommand(command) {
+    return command === "#please-open" ? "#please-close" : "#please-open";
+  }
+
+  function latestWorkflowCommand(comments) {
+    return workflowCommandHistory(comments).at(-1) || null;
+  }
+
+  function hasNewPostedWorkflowCommand(commands, pendingCommand, previousCount) {
+    if (!pendingCommand) return false;
+    const history = Array.from(commands || []);
+    if (!Number.isInteger(previousCount) || previousCount < 0) {
+      return history.at(-1) === pendingCommand;
+    }
+    return history.filter((command) => command === pendingCommand).length > previousCount;
+  }
+
+  function workflowStateAfterPost(command, commands) {
+    if (command !== "#sign-off" && command !== "#hold-off") return null;
+    const history = Array.from(commands || []);
+    return {
+      command: nextWorkflowCommand(command),
+      postedCommand: command,
+      postedCommandCount: history.filter((item) => item === command).length
+    };
+  }
+
+  function resolveWorkflowCommand(commands, pendingState = null) {
+    const history = Array.from(commands || []);
+    const latestCommand = history.at(-1) || null;
+    const commandOverride = pendingState && pendingState.command;
+    const pendingCommand = pendingState && pendingState.postedCommand;
+    const previousCount = pendingState && pendingState.postedCommandCount;
+
+    if (commandOverride && pendingCommand) {
+      if (
+        hasNewPostedWorkflowCommand(history, pendingCommand, previousCount)
+      ) {
+        return {
+          command: commandForLatestComment(latestCommand),
+          clearPendingState: true
+        };
+      }
+      return { command: commandOverride, clearPendingState: false };
+    }
+
+    return {
+      command: commandForLatestComment(latestCommand),
+      clearPendingState: Boolean(commandOverride)
+    };
+  }
+
+  function closureStateAfterPost(command, commands) {
+    if (command !== "#please-open" && command !== "#please-close") return null;
+    const history = Array.from(commands || []);
+    return {
+      command: nextClosureCommand(command),
+      postedCommand: command,
+      postedCommandCount: history.filter((item) => item === command).length
+    };
+  }
+
+  function resolveClosureCommand(
+    commands,
+    pendingState = null,
+    defaultCommand = "#please-open"
+  ) {
+    const history = Array.from(commands || []);
+    const latestCommand = history.at(-1) || null;
+    const commandOverride = pendingState && pendingState.command;
+    const pendingCommand = pendingState && pendingState.postedCommand;
+    const previousCount = pendingState && pendingState.postedCommandCount;
+
+    if (commandOverride && pendingCommand) {
+      if (
+        hasNewPostedWorkflowCommand(history, pendingCommand, previousCount)
+      ) {
+        return {
+          command: nextClosureCommand(latestCommand),
+          clearPendingState: true
+        };
+      }
+      return { command: commandOverride, clearPendingState: false };
+    }
+
+    return {
+      command: latestCommand
+        ? nextClosureCommand(latestCommand)
+        : defaultCommand,
+      clearPendingState: Boolean(commandOverride)
+    };
+  }
+
+  function isPullRequestAuthor(viewerLogin, authorLogin) {
+    const viewer = String(viewerLogin || "").trim().toLowerCase();
+    const author = String(authorLogin || "").trim().toLowerCase();
+    return Boolean(viewer && author && viewer === author);
+  }
+
+  function isDraftPullRequestState(values) {
+    return Array.from(values || []).some((value) => {
+      const normalized = String(value || "").trim().replace(/\s+/g, " ");
+      return (
+        /(?:^|\s)State--draft(?:\s|$)/i.test(normalized) ||
+        /^(?:draft|draft pull request)$/i.test(normalized)
+      );
+    });
   }
 
   function containsCommand(value, command) {
@@ -206,21 +333,9 @@
     const values = Array.from(statuses || []).map((status) =>
       String(status || "").trim().replace(/\s+/g, " ")
     );
-    const allPassed = values.some((status) =>
+    return values.some((status) =>
       /^all checks (?:have )?passed[.!]?$/i.test(status)
     );
-    if (allPassed) return true;
-
-    const incomplete = values.some((status) =>
-      /\bchecks?\b/i.test(status) &&
-      /\b(?:pending|queued|in progress|waiting|expected|failed|failing|failure|cancelled|timed out|warning|action required)\b/i.test(status)
-    );
-    const successful = values.some((status) =>
-      /^(?:\d+ successful checks?|\d+ checks? passed)[.!]?$/i.test(
-        status
-      )
-    );
-    return successful && !incomplete;
   }
 
   const api = {
@@ -228,6 +343,8 @@
     mergeBoxAction,
     isClosedUnmergedText,
     isReopenControlLabel,
+    isClosureControlLabel,
+    shouldHideNativeReopenControl,
     isAssigneeControlLabel,
     assignmentCommand,
     assignmentCommands,
@@ -240,7 +357,17 @@
     nextDialogFocusIndex,
     nextWorkflowCommand,
     commandForLatestComment,
+    workflowCommandHistory,
+    closureCommandHistory,
+    nextClosureCommand,
     latestWorkflowCommand,
+    hasNewPostedWorkflowCommand,
+    workflowStateAfterPost,
+    resolveWorkflowCommand,
+    closureStateAfterPost,
+    resolveClosureCommand,
+    isPullRequestAuthor,
+    isDraftPullRequestState,
     containsCommand,
     areChecksComplete
   };

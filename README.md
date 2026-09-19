@@ -39,8 +39,8 @@ automation.
 
 A **Manifest V3 content script** that:
 
-1. Shows a green **Merge with PRMerger** shortcut directly beside GitHub's
-  **Merging is blocked** status after all required checks pass. The button adds
+1. Shows a green **Merge with PRMerger** shortcut on non-draft pull requests,
+  directly beside GitHub's **Merging is blocked** status after all required checks pass. The button adds
   `#sign-off` to the comment editor and submits it through GitHub's normal
   **Comment** button, then immediately becomes a green **Hold off merge** action
   in the same location. Selecting `#hold-off` immediately turns it back into
@@ -51,11 +51,15 @@ A **Manifest V3 content script** that:
   the timeline. When no workflow comment or pending action exists, passed
   checks display **Merge with PRMerger**. The button never bypasses GitHub
   permissions or PRMerger authorization.
-2. Shows **reopen pull request** immediately before GitHub's **Comment** button
-  when a pull request is closed without being merged and GitHub doesn't already
-  provide its native Reopen action. Selecting it posts `#please-open` through
-  GitHub's normal comment workflow. Merged pull requests never show the reopen
-  control.
+2. Shows `#please-open` immediately before GitHub's **Comment** button when an
+  unmerged pull request is closed. Selecting it posts the command through
+  GitHub's normal comment workflow and immediately changes the action to
+  `#please-close`. Selecting `#please-close` changes it back to `#please-open`.
+  The pending action is stored locally per pull request so it survives a
+  refresh while PRMerger updates the pull request. This control is available
+  only to signed-in users who aren't the pull request author, and it never
+  appears on merged pull requests. When `#please-open` is available, the
+  extension hides GitHub's disabled **Reopen pull request** button.
 3. Adds **Assign** controls beside **Assignees** and **Reviewers**. Entering a
   search term displays matching GitHub accounts with their avatar, public full
   name when available, and username. Select one or more accounts, then choose

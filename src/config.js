@@ -24,6 +24,7 @@
   const api = (storage && storage.sync) || null;
   const localApi = (storage && storage.local) || null;
   const WORKFLOW_COMMANDS_KEY = "workflowCommands";
+  const CLOSURE_COMMANDS_KEY = "closureCommands";
   const ASSIGNMENT_STATES_KEY = "assignmentStates";
   const REVIEWER_STATES_KEY = "reviewerStates";
   const LABEL_STATES_KEY = "labelStates";
@@ -54,7 +55,7 @@
         const stored = await localApi.get(WORKFLOW_COMMANDS_KEY);
         const state = stored[WORKFLOW_COMMANDS_KEY]?.[prKey];
         if (state === "#sign-off" || state === "#hold-off") {
-          return { command: state, postedCommand: null };
+          return { command: state, postedCommand: null, postedCommandCount: null };
         }
         if (
           state &&
@@ -66,7 +67,10 @@
               state.postedCommand === "#sign-off" ||
               state.postedCommand === "#hold-off"
                 ? state.postedCommand
-                : null
+                : null,
+            postedCommandCount: Number.isInteger(state.postedCommandCount)
+              ? state.postedCommandCount
+              : null
           };
         }
         return null;
@@ -75,16 +79,66 @@
       }
     },
 
-    async setWorkflowCommand(prKey, command, postedCommand = null) {
+    async setWorkflowCommand(
+      prKey,
+      command,
+      postedCommand = null,
+      postedCommandCount = null
+    ) {
       if (!localApi || !prKey) return;
       const stored = await localApi.get(WORKFLOW_COMMANDS_KEY);
       const commands = { ...(stored[WORKFLOW_COMMANDS_KEY] || {}) };
       if (command === "#sign-off" || command === "#hold-off") {
-        commands[prKey] = { command, postedCommand };
+        commands[prKey] = { command, postedCommand, postedCommandCount };
       } else {
         delete commands[prKey];
       }
       await localApi.set({ [WORKFLOW_COMMANDS_KEY]: commands });
+    },
+
+    async getClosureCommand(prKey) {
+      if (!localApi || !prKey) return null;
+      try {
+        const stored = await localApi.get(CLOSURE_COMMANDS_KEY);
+        const state = stored[CLOSURE_COMMANDS_KEY]?.[prKey];
+        if (
+          !state ||
+          (state.command !== "#please-open" &&
+            state.command !== "#please-close")
+        ) {
+          return null;
+        }
+        return {
+          command: state.command,
+          postedCommand:
+            state.postedCommand === "#please-open" ||
+            state.postedCommand === "#please-close"
+              ? state.postedCommand
+              : null,
+          postedCommandCount: Number.isInteger(state.postedCommandCount)
+            ? state.postedCommandCount
+            : null
+        };
+      } catch (e) {
+        return null;
+      }
+    },
+
+    async setClosureCommand(
+      prKey,
+      command,
+      postedCommand = null,
+      postedCommandCount = null
+    ) {
+      if (!localApi || !prKey) return;
+      const stored = await localApi.get(CLOSURE_COMMANDS_KEY);
+      const commands = { ...(stored[CLOSURE_COMMANDS_KEY] || {}) };
+      if (command === "#please-open" || command === "#please-close") {
+        commands[prKey] = { command, postedCommand, postedCommandCount };
+      } else {
+        delete commands[prKey];
+      }
+      await localApi.set({ [CLOSURE_COMMANDS_KEY]: commands });
     },
 
     async getAssignmentState(prKey) {

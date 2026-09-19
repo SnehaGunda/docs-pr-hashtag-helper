@@ -7,9 +7,14 @@
   let signOffSyncQueued = false;
   let workflowCommandOverride = null;
   let pendingPostedWorkflowCommand = null;
-  let reopenRequested = false;
+  let pendingPostedWorkflowCommandCount = null;
+  let closureCommandOverride = null;
+  let pendingPostedClosureCommand = null;
+  let pendingPostedClosureCommandCount = null;
   let loadedWorkflowKey = null;
   let loadingWorkflowKey = null;
+  let loadedClosureKey = null;
+  let loadingClosureKey = null;
   let assignmentPicker = null;
   let assignmentPickerAction = "assign";
   let assignmentSearchTimer = null;
@@ -1475,6 +1480,8 @@
       if (currentPullRequestKey() === prKey) {
         workflowCommandOverride = state && state.command;
         pendingPostedWorkflowCommand = state && state.postedCommand;
+        pendingPostedWorkflowCommandCount =
+          state && state.postedCommandCount;
         loadedWorkflowKey = prKey;
       }
       loadingWorkflowKey = null;
@@ -1483,10 +1490,55 @@
     return false;
   }
 
-  function persistWorkflowCommand(command, postedCommand = null) {
+  function persistWorkflowCommand(
+    command,
+    postedCommand = null,
+    postedCommandCount = null
+  ) {
     const prKey = currentPullRequestKey();
     if (CONFIG && CONFIG.setWorkflowCommand && prKey) {
-      CONFIG.setWorkflowCommand(prKey, command, postedCommand).catch(() => {});
+      CONFIG.setWorkflowCommand(
+        prKey,
+        command,
+        postedCommand,
+        postedCommandCount
+      ).catch(() => {});
+    }
+  }
+
+  function ensureClosureStateLoaded() {
+    const prKey = currentPullRequestKey();
+    if (!prKey || !CONFIG || !CONFIG.getClosureCommand) return true;
+    if (loadedClosureKey === prKey) return true;
+    if (loadingClosureKey === prKey) return false;
+
+    loadingClosureKey = prKey;
+    CONFIG.getClosureCommand(prKey).then((state) => {
+      if (currentPullRequestKey() === prKey) {
+        closureCommandOverride = state && state.command;
+        pendingPostedClosureCommand = state && state.postedCommand;
+        pendingPostedClosureCommandCount = state && state.postedCommandCount;
+        loadedClosureKey = prKey;
+      }
+      loadingClosureKey = null;
+      queueSignOffSync();
+    });
+    return false;
+  }
+
+  function persistClosureCommand(
+    command,
+    postedCommand = null,
+    postedCommandCount = null
+  ) {
+    const prKey = currentPullRequestKey();
+    if (CONFIG && CONFIG.setClosureCommand && prKey) {
+      CONFIG.setClosureCommand(
+        prKey,
+        command,
+        postedCommand,
+        postedCommandCount
+      ).catch(() => {});
     }
   }
 
@@ -1536,7 +1588,27 @@
       : "open";
   }
 
-  function latestPostedWorkflowCommand() {
+  function pullRequestIsDraft() {
+    const indicators = document.querySelectorAll(
+      "[data-testid='pull-request-state'], " +
+        "[data-component='StateLabel'][data-status='draft'], " +
+        ".gh-header-meta .State, " +
+        "#partial-discussion-header .State, " +
+        "[aria-label='Draft Pull Request'], " +
+        "[aria-label='Draft pull request']"
+    );
+    return WORKFLOW.isDraftPullRequestState(
+      Array.from(indicators).flatMap((element) => [
+        element.textContent,
+        element.getAttribute("aria-label"),
+        element.getAttribute("title"),
+        element.getAttribute("data-status"),
+        element.className
+      ])
+    );
+  }
+
+  function postedWorkflowCommands() {
     const commentBodies = Array.from(
       document.querySelectorAll(
         ".timeline-comment .js-comment-body, " +
@@ -1549,39 +1621,110 @@
         !body.parentElement ||
         !body.parentElement.closest(".docs-pr-hh-sign-off-row")
     );
-    return WORKFLOW.latestWorkflowCommand(
+    return WORKFLOW.workflowCommandHistory(
+      commentBodies.map((body) => body.textContent)
+    );
+  }
+
+  function postedClosureCommands() {
+    const commentBodies = Array.from(
+      document.querySelectorAll(
+        ".timeline-comment .js-comment-body, " +
+          ".timeline-comment .comment-body, " +
+          ".timeline-comment .markdown-body, " +
+          "[data-testid='comment-body']"
+      )
+    ).filter(
+      (body) =>
+        !body.parentElement ||
+        !body.parentElement.closest(".docs-pr-hh-sign-off-row")
+    );
+    return WORKFLOW.closureCommandHistory(
       commentBodies.map((body) => body.textContent)
     );
   }
 
   function currentWorkflowCommand() {
-    const postedCommand = latestPostedWorkflowCommand();
-    if (workflowCommandOverride && pendingPostedWorkflowCommand) {
-      if (postedCommand === pendingPostedWorkflowCommand) {
-        const command = WORKFLOW.nextWorkflowCommand(postedCommand);
-        workflowCommandOverride = null;
-        pendingPostedWorkflowCommand = null;
-        persistWorkflowCommand(null);
-        return command;
-      }
-      return workflowCommandOverride;
-    }
-
-    if (postedCommand) {
-      if (workflowCommandOverride) {
-        workflowCommandOverride = null;
-        pendingPostedWorkflowCommand = null;
-        persistWorkflowCommand(null);
-      }
-      return WORKFLOW.commandForLatestComment(postedCommand);
-    }
-
-    if (workflowCommandOverride) {
+    const postedCommands = postedWorkflowCommands();
+    const resolved = WORKFLOW.resolveWorkflowCommand(postedCommands, {
+      command: workflowCommandOverride,
+      postedCommand: pendingPostedWorkflowCommand,
+      postedCommandCount: pendingPostedWorkflowCommandCount
+    });
+    if (resolved.clearPendingState) {
       workflowCommandOverride = null;
       pendingPostedWorkflowCommand = null;
+      pendingPostedWorkflowCommandCount = null;
       persistWorkflowCommand(null);
     }
-    return WORKFLOW.commandForLatestComment(null);
+    return resolved.command;
+  }
+
+  function currentClosureCommand(closureState) {
+    const postedCommands = postedClosureCommands();
+    const resolved = WORKFLOW.resolveClosureCommand(
+      postedCommands,
+      {
+        command: closureCommandOverride,
+        postedCommand: pendingPostedClosureCommand,
+        postedCommandCount: pendingPostedClosureCommandCount
+      },
+      closureState === "open" ? "#please-close" : "#please-open"
+    );
+    if (resolved.clearPendingState) {
+      closureCommandOverride = null;
+      pendingPostedClosureCommand = null;
+      pendingPostedClosureCommandCount = null;
+      persistClosureCommand(null);
+    }
+    return resolved.command;
+  }
+
+  function currentViewerLogin() {
+    return document.querySelector("meta[name='user-login']")?.content || null;
+  }
+
+  function currentPullRequestAuthorLogin() {
+    const description = document.querySelector(
+      "[data-component='PageHeader.Description'], .gh-header-meta"
+    );
+    if (!description) return null;
+    for (const link of description.querySelectorAll("a[href^='/']")) {
+      const username = githubUsernameFromPath(link.getAttribute("href"));
+      if (username) return username;
+    }
+    return null;
+  }
+
+  function shouldShowClosureAction(closureState) {
+    const viewerLogin = currentViewerLogin();
+    const authorLogin = currentPullRequestAuthorLogin();
+    return Boolean(
+      closureState !== "merged" &&
+        viewerLogin &&
+        authorLogin &&
+        !WORKFLOW.isPullRequestAuthor(viewerLogin, authorLogin)
+    );
+  }
+
+  function syncNativeReopenControl(command = null) {
+    document
+      .querySelectorAll("button, [role='button']")
+      .forEach((button) => {
+        if (button.closest(".docs-pr-hh-sign-off-row")) return;
+        const label =
+          button.textContent || button.getAttribute("aria-label") || "";
+        const shouldHide = WORKFLOW.shouldHideNativeReopenControl(
+          command,
+          label,
+          button.matches(":disabled"),
+          button.getAttribute("aria-disabled")
+        );
+        button.classList.toggle(
+          "docs-pr-hh-hidden-native-reopen",
+          shouldHide
+        );
+      });
   }
 
   function updateSignOffButtonState(button) {
@@ -1608,18 +1751,16 @@
     row?.classList.toggle("is-not-ready", action.icon === "hourglass");
   }
 
-  function updateReopenButtonState(button) {
-    button.disabled = reopenRequested;
-    button.textContent = reopenRequested
-      ? "Reopen requested"
-      : "Reopen pull request";
-    button.dataset.command = "#please-open";
+  function updateClosureButtonState(button, closureState) {
+    const command = currentClosureCommand(closureState);
+    button.disabled = false;
+    button.textContent = command;
+    button.dataset.command = command;
     button.classList.remove("is-hold-off");
     button.classList.add("is-reopen");
-    button.title = reopenRequested
-      ? "Posted #please-open. Waiting for PRMerger."
-      : "Post #please-open as a PR comment";
+    button.title = `Post ${command} as a PR comment`;
     button.setAttribute("aria-label", button.title);
+    syncNativeReopenControl(command);
   }
 
   function findCommentSubmitButton(field, includeDisabled = false) {
@@ -1649,12 +1790,6 @@
     const submitButton = findCommentSubmitButton(field);
     if (submitButton) {
       submitButton.click();
-      if (command === "#please-open") {
-        reopenRequested = true;
-        updateReopenButtonState(button);
-        announceSignOffStatus(button, `Posted ${command}.`);
-        return;
-      }
       announceSignOffStatus(button, `Posted ${command}.`);
       return;
     }
@@ -1665,12 +1800,19 @@
       );
       return;
     }
-    if (command !== "#please-open") {
+    if (command === "#please-open" || command === "#please-close") {
+      closureCommandOverride = null;
+      pendingPostedClosureCommand = null;
+      pendingPostedClosureCommandCount = null;
+      persistClosureCommand(null);
+      updateClosureButtonState(button, pullRequestClosureState());
+    } else {
       workflowCommandOverride = null;
       pendingPostedWorkflowCommand = null;
+      pendingPostedWorkflowCommandCount = null;
       persistWorkflowCommand(null);
+      updateSignOffButtonState(button);
     }
-    updateSignOffButtonState(button);
     announceSignOffStatus(button, "Could not find GitHub's Comment button.");
   }
 
@@ -1839,10 +1981,33 @@
 
     setFieldValue(field, value, caret);
     announceSignOffStatus(button, `Posting ${trigger}...`);
-    if (trigger !== "#please-open") {
-      workflowCommandOverride = WORKFLOW.nextWorkflowCommand(trigger);
-      pendingPostedWorkflowCommand = trigger;
-      persistWorkflowCommand(workflowCommandOverride, trigger);
+    if (trigger === "#please-open" || trigger === "#please-close") {
+      const pendingState = WORKFLOW.closureStateAfterPost(
+        trigger,
+        postedClosureCommands()
+      );
+      closureCommandOverride = pendingState.command;
+      pendingPostedClosureCommand = pendingState.postedCommand;
+      pendingPostedClosureCommandCount = pendingState.postedCommandCount;
+      persistClosureCommand(
+        closureCommandOverride,
+        trigger,
+        pendingPostedClosureCommandCount
+      );
+      updateClosureButtonState(button, pullRequestClosureState());
+    } else {
+      const pendingState = WORKFLOW.workflowStateAfterPost(
+        trigger,
+        postedWorkflowCommands()
+      );
+      workflowCommandOverride = pendingState.command;
+      pendingPostedWorkflowCommand = pendingState.postedCommand;
+      pendingPostedWorkflowCommandCount = pendingState.postedCommandCount;
+      persistWorkflowCommand(
+        workflowCommandOverride,
+        trigger,
+        pendingPostedWorkflowCommandCount
+      );
       updateSignOffButtonState(button);
     }
     submitCommentWhenReady(field, button, trigger);
@@ -1873,40 +2038,37 @@
     const buttonHost = submitButton && submitButton.parentElement;
     const actionRow = buttonHost && buttonHost.parentElement;
     if (!actionRow) return false;
-    if (
-      row.parentElement !== actionRow ||
-      row.nextElementSibling !== buttonHost
-    ) {
-      actionRow.insertBefore(row, buttonHost);
+    actionRow.classList.remove("docs-pr-hh-closure-action-row");
+    buttonHost.classList.remove("docs-pr-hh-closure-button-group");
+    buttonHost.classList.remove("docs-pr-hh-comment-button-host");
+    actionRow
+      .querySelectorAll(".docs-pr-hh-native-closure-host")
+      .forEach((element) =>
+        element.classList.remove("docs-pr-hh-native-closure-host")
+      );
+    submitButton.classList.remove("docs-pr-hh-comment-submit");
+    const firstAction = actionRow.firstElementChild;
+    if (row.parentElement !== actionRow || row !== firstAction) {
+      actionRow.insertBefore(row, firstAction);
     }
+    row.classList.remove("is-next-to-comment");
     row.classList.remove("is-next-to-merge-status");
     row.classList.remove("is-in-merge-box");
-    row.classList.add("is-next-to-comment");
+    row.classList.remove("is-next-to-native-closure");
+    row.classList.add("is-leftmost-closure");
     return true;
-  }
-
-  function hasNativeReopenButton() {
-    return Array.from(document.querySelectorAll("button, [role='button']")).some(
-      (button) => {
-        if (
-          button.closest(".docs-pr-hh-sign-off-row") ||
-          button.hidden ||
-          !button.offsetParent
-        ) {
-          return false;
-        }
-        return WORKFLOW.isReopenControlLabel(
-          button.textContent || button.getAttribute("aria-label")
-        );
-      }
-    );
   }
 
   function syncSignOffButton() {
     signOffSyncQueued = false;
-    let existing = document.querySelector(".docs-pr-hh-sign-off");
+    let existing = document.querySelector(
+      ".docs-pr-hh-sign-off-row.is-merge-box-action .docs-pr-hh-sign-off"
+    );
     if (!isPullRequestPage() || !isActiveRepo()) {
-      if (existing) existing.closest(".docs-pr-hh-sign-off-row").remove();
+      syncNativeReopenControl();
+      document
+        .querySelectorAll(".docs-pr-hh-sign-off-row")
+        .forEach((row) => row.remove());
       const assignButton = document.querySelector(".docs-pr-hh-assign");
       if (assignButton) assignButton.remove();
       const reviewerButton = document.querySelector(
@@ -1923,34 +2085,38 @@
 
     const closureState = pullRequestClosureState();
     if (closureState === "merged") {
-      reopenRequested = false;
-      if (existing) existing.closest(".docs-pr-hh-sign-off-row").remove();
+      syncNativeReopenControl();
+      document
+        .querySelectorAll(".docs-pr-hh-sign-off-row")
+        .forEach((row) => row.remove());
       return;
     }
-    if (closureState === "closed") {
-      if (hasNativeReopenButton()) {
-        if (existing) existing.closest(".docs-pr-hh-sign-off-row").remove();
-        return;
-      }
+    if (closureState === "closed" && existing) {
+      existing.closest(".docs-pr-hh-sign-off-row").remove();
+      existing = null;
+    }
+    let closureButton = document.querySelector(
+      ".docs-pr-hh-sign-off-row.is-reopen-action .docs-pr-hh-sign-off"
+    );
+    if (!shouldShowClosureAction(closureState)) {
+      syncNativeReopenControl();
       document
-        .querySelectorAll(
-          ".docs-pr-hh-sign-off-row:not(.is-reopen-action)"
-        )
+        .querySelectorAll(".docs-pr-hh-sign-off-row.is-reopen-action")
         .forEach((row) => row.remove());
-      existing = document.querySelector(
-        ".docs-pr-hh-sign-off-row.is-reopen-action .docs-pr-hh-sign-off"
+      closureButton = null;
+    } else if (!ensureClosureStateLoaded()) {
+      return;
+    } else if (closureButton) {
+      updateClosureButtonState(closureButton, closureState);
+      placeReopenButtonRow(
+        closureButton.closest(".docs-pr-hh-sign-off-row")
       );
-      if (existing) {
-        updateReopenButtonState(existing);
-        placeReopenButtonRow(existing.closest(".docs-pr-hh-sign-off-row"));
-        return;
-      }
-
+    } else {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "docs-pr-hh-sign-off is-reopen";
       button.addEventListener("click", () =>
-        postWorkflowComment(button, "#please-open")
+        postWorkflowComment(button, button.dataset.command)
       );
 
       const row = document.createElement("span");
@@ -1963,10 +2129,17 @@
       status.setAttribute("aria-live", "polite");
       row.appendChild(status);
       if (!placeReopenButtonRow(row)) return;
-      updateReopenButtonState(button);
+      updateClosureButtonState(button, closureState);
+    }
+    if (closureState === "closed") {
       return;
     }
-    reopenRequested = false;
+    if (pullRequestIsDraft()) {
+      document
+        .querySelectorAll(".docs-pr-hh-sign-off-row.is-merge-box-action")
+        .forEach((row) => row.remove());
+      return;
+    }
     document
       .querySelectorAll(
         ".docs-pr-hh-sign-off-row:not(.is-merge-box-action)"
