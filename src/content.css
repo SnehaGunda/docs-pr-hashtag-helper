@@ -106,8 +106,23 @@
   display: inline-flex;
   align-self: center;
   flex: 0 0 auto;
+  margin-left: auto;
   margin-right: 8px;
   padding: 0;
+}
+
+.docs-pr-hh-sign-off-row.is-leftmost-closure {
+  display: inline-flex;
+  align-self: center;
+  flex: 0 0 auto;
+  width: auto;
+  margin-left: 0;
+  margin-right: 8px;
+  padding: 0;
+}
+
+.docs-pr-hh-hidden-native-reopen {
+  display: none !important;
 }
 
 .docs-pr-hh-sign-off-row .docs-pr-hh-sign-off {
