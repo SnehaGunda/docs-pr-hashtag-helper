@@ -51,15 +51,15 @@ A **Manifest V3 content script** that:
   the timeline. When no workflow comment or pending action exists, passed
   checks display **Merge with PRMerger**. The button never bypasses GitHub
   permissions or PRMerger authorization.
-2. Shows `#please-open` immediately before GitHub's **Comment** button when an
-  unmerged pull request is closed. Selecting it posts the command through
-  GitHub's normal comment workflow and immediately changes the action to
-  `#please-close`. Selecting `#please-close` changes it back to `#please-open`.
-  The pending action is stored locally per pull request so it survives a
-  refresh while PRMerger updates the pull request. This control is available
-  only to signed-in users who aren't the pull request author, and it never
-  appears on merged pull requests. When `#please-open` is available, the
-  extension hides GitHub's disabled **Reopen pull request** button.
+2. Uses GitHub's native **Close pull request** or **Reopen pull request**
+  control when the signed-in user has permission to use it. Otherwise, the
+  extension shows `#please-close` for an open pull request or `#please-open`
+  for a closed pull request. Selecting the fallback posts the command through
+  GitHub's normal comment workflow and immediately reverses the action. The
+  pending action is stored locally per pull request so it survives a refresh
+  while PRMerger updates the pull request. The fallback is available only to
+  signed-in users who aren't the pull request author, never appears on merged
+  pull requests, and replaces the matching disabled native control.
 3. Adds **Assign** controls beside **Assignees** and **Reviewers**. Entering a
   search term displays matching GitHub accounts with their avatar, public full
   name when available, and username. Select one or more accounts, then choose

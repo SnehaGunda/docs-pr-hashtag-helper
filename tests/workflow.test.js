@@ -7,7 +7,9 @@ const {
   isClosedUnmergedText,
   isReopenControlLabel,
   isClosureControlLabel,
+  isEnabledNativeClosureControl,
   shouldHideNativeReopenControl,
+  shouldHideNativeClosureControl,
   isAssigneeControlLabel,
   assignmentCommand,
   assignmentCommands,
@@ -401,6 +403,23 @@ test("recognizes native GitHub close and reopen controls", () => {
   assert.equal(isClosureControlLabel("This pull request is closed"), false);
 });
 
+test("prefers only enabled native GitHub closure controls", () => {
+  assert.equal(
+    isEnabledNativeClosureControl("Close pull request", false, null),
+    true
+  );
+  assert.equal(isEnabledNativeClosureControl("Reopen", false, "false"), true);
+  assert.equal(
+    isEnabledNativeClosureControl("Close pull request", true, null),
+    false
+  );
+  assert.equal(
+    isEnabledNativeClosureControl("Reopen pull request", false, "true"),
+    false
+  );
+  assert.equal(isEnabledNativeClosureControl("Comment", false, null), false);
+});
+
 test("hides only a disabled native reopen control while please-open is available", () => {
   assert.equal(
     shouldHideNativeReopenControl(
@@ -439,6 +458,36 @@ test("hides only a disabled native reopen control while please-open is available
       "Close pull request",
       true,
       "true"
+    ),
+    false
+  );
+});
+
+test("hides a matching disabled native closure control for the fallback command", () => {
+  assert.equal(
+    shouldHideNativeClosureControl(
+      "#please-close",
+      "Close pull request",
+      true,
+      null
+    ),
+    true
+  );
+  assert.equal(
+    shouldHideNativeClosureControl(
+      "#please-close",
+      "Reopen pull request",
+      true,
+      null
+    ),
+    false
+  );
+  assert.equal(
+    shouldHideNativeClosureControl(
+      "#please-close",
+      "Close pull request",
+      false,
+      "false"
     ),
     false
   );

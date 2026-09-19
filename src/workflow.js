@@ -62,15 +62,45 @@
     );
   }
 
+  function isEnabledNativeClosureControl(label, disabled, ariaDisabled) {
+    return (
+      isClosureControlLabel(label) &&
+      !Boolean(disabled) &&
+      String(ariaDisabled).toLowerCase() !== "true"
+    );
+  }
+
   function shouldHideNativeReopenControl(
     command,
     label,
     disabled,
     ariaDisabled
   ) {
+    return shouldHideNativeClosureControl(
+      command,
+      label,
+      disabled,
+      ariaDisabled
+    );
+  }
+
+  function shouldHideNativeClosureControl(
+    command,
+    label,
+    disabled,
+    ariaDisabled
+  ) {
+    const normalizedLabel = String(label || "").trim().toLowerCase();
+    const expectedAction =
+      command === "#please-open"
+        ? "reopen"
+        : command === "#please-close"
+          ? "close"
+          : null;
     return (
-      command === "#please-open" &&
-      isReopenControlLabel(label) &&
+      expectedAction &&
+      (normalizedLabel === expectedAction ||
+        normalizedLabel === `${expectedAction} pull request`) &&
       (Boolean(disabled) || String(ariaDisabled).toLowerCase() === "true")
     );
   }
@@ -344,7 +374,9 @@
     isClosedUnmergedText,
     isReopenControlLabel,
     isClosureControlLabel,
+    isEnabledNativeClosureControl,
     shouldHideNativeReopenControl,
+    shouldHideNativeClosureControl,
     isAssigneeControlLabel,
     assignmentCommand,
     assignmentCommands,

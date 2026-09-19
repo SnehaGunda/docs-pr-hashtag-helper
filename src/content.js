@@ -1703,25 +1703,47 @@
       closureState !== "merged" &&
         viewerLogin &&
         authorLogin &&
-        !WORKFLOW.isPullRequestAuthor(viewerLogin, authorLogin)
+        !WORKFLOW.isPullRequestAuthor(viewerLogin, authorLogin) &&
+        !hasEnabledNativeClosureControl()
     );
   }
 
-  function syncNativeReopenControl(command = null) {
+  function nativeClosureControls() {
+    return Array.from(document.querySelectorAll("button, [role='button']")).filter(
+      (button) =>
+        !button.closest(".docs-pr-hh-sign-off-row") &&
+        !button.hidden &&
+        button.offsetParent
+    );
+  }
+
+  function hasEnabledNativeClosureControl() {
+    return nativeClosureControls().some((button) => {
+      const label =
+        button.textContent || button.getAttribute("aria-label") || "";
+      return WORKFLOW.isEnabledNativeClosureControl(
+        label,
+        button.matches(":disabled"),
+        button.getAttribute("aria-disabled")
+      );
+    });
+  }
+
+  function syncNativeClosureControl(command = null) {
     document
       .querySelectorAll("button, [role='button']")
       .forEach((button) => {
         if (button.closest(".docs-pr-hh-sign-off-row")) return;
         const label =
           button.textContent || button.getAttribute("aria-label") || "";
-        const shouldHide = WORKFLOW.shouldHideNativeReopenControl(
+        const shouldHide = WORKFLOW.shouldHideNativeClosureControl(
           command,
           label,
           button.matches(":disabled"),
           button.getAttribute("aria-disabled")
         );
         button.classList.toggle(
-          "docs-pr-hh-hidden-native-reopen",
+          "docs-pr-hh-hidden-native-closure",
           shouldHide
         );
       });
@@ -1760,7 +1782,7 @@
     button.classList.add("is-reopen");
     button.title = `Post ${command} as a PR comment`;
     button.setAttribute("aria-label", button.title);
-    syncNativeReopenControl(command);
+    syncNativeClosureControl(command);
   }
 
   function findCommentSubmitButton(field, includeDisabled = false) {
@@ -2065,7 +2087,7 @@
       ".docs-pr-hh-sign-off-row.is-merge-box-action .docs-pr-hh-sign-off"
     );
     if (!isPullRequestPage() || !isActiveRepo()) {
-      syncNativeReopenControl();
+      syncNativeClosureControl();
       document
         .querySelectorAll(".docs-pr-hh-sign-off-row")
         .forEach((row) => row.remove());
@@ -2085,7 +2107,7 @@
 
     const closureState = pullRequestClosureState();
     if (closureState === "merged") {
-      syncNativeReopenControl();
+      syncNativeClosureControl();
       document
         .querySelectorAll(".docs-pr-hh-sign-off-row")
         .forEach((row) => row.remove());
@@ -2099,7 +2121,7 @@
       ".docs-pr-hh-sign-off-row.is-reopen-action .docs-pr-hh-sign-off"
     );
     if (!shouldShowClosureAction(closureState)) {
-      syncNativeReopenControl();
+      syncNativeClosureControl();
       document
         .querySelectorAll(".docs-pr-hh-sign-off-row.is-reopen-action")
         .forEach((row) => row.remove());
